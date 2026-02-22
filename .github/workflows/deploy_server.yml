@@ -1,0 +1,93 @@
+name: Deploy to AWS Lambda (Server)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'server/**'
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./server
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # Using 20 as 24 might not be fully supported in setup-node yet, but 20 is sufficient for packaging
+
+      - name: Install Dependencies & Package
+        run: |
+          npm install
+          npm run package:all
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_SIGNFY_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_SIGNFY_REGION }}
+
+      - name: Deploy Shared Layer
+        run: |
+          # Publish a new version of the layer
+          LAYER_VERSION_ARN=$(aws lambda publish-layer-version \
+            --layer-name signfy-recordings-shared-layer \
+            --description "Shared code for Signfy backend" \
+            --zip-file fileb://deploy/shared-layer.zip \
+            --compatible-runtimes nodejs20.x nodejs22.x nodejs24.x \
+            --query 'LayerVersionArn' \
+            --output text)
+            
+          echo "Published new layer version: $LAYER_VERSION_ARN"
+          
+          # Update all functions to use the new layer version
+          aws lambda update-function-configuration \
+            --function-name signfy-recordings-websocket \
+            --layers $LAYER_VERSION_ARN
+            
+          aws lambda update-function-configuration \
+            --function-name signfy-recordings-device-control \
+            --layers $LAYER_VERSION_ARN
+            
+          aws lambda update-function-configuration \
+            --function-name signfy-recordings-action \
+            --layers $LAYER_VERSION_ARN
+            
+          aws lambda update-function-configuration \
+            --function-name signfy-recordings-recording \
+            --layers $LAYER_VERSION_ARN
+
+      - name: Deploy websocket-service
+        run: |
+          aws lambda update-function-code \
+            --function-name signfy-recordings-websocket \
+            --zip-file fileb://deploy/websocket-service.zip
+
+      - name: Deploy device-control-service
+        run: |
+          aws lambda update-function-code \
+            --function-name signfy-recordings-device-control \
+            --zip-file fileb://deploy/device-control-service.zip
+
+      - name: Deploy action-service
+        run: |
+          aws lambda update-function-code \
+            --function-name signfy-recordings-action \
+            --zip-file fileb://deploy/action-service.zip
+
+      - name: Deploy recording-service
+        run: |
+          aws lambda update-function-code \
+            --function-name signfy-recordings-recording \
+            --zip-file fileb://deploy/recording-service.zip
