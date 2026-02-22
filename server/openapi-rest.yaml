@@ -1,0 +1,1049 @@
+openapi: "3.0.1"
+info:
+  title: Signfy Recording System REST API
+  description: |
+    Signfy Recording System 的 REST API。
+    提供裝置控制、動作管理、錄影管理等功能。
+    可直接匯入 AWS API Gateway。
+  version: "1.0.0"
+
+x-amazon-apigateway-request-validators:
+  all:
+    validateRequestBody: true
+    validateRequestParameters: true
+  params-only:
+    validateRequestBody: false
+    validateRequestParameters: true
+
+paths:
+  # ===========================================================
+  # Device Control Service
+  # ===========================================================
+  /connection/status:
+    get:
+      summary: 查詢裝置連線狀態
+      description: 掃描 ConnectionsTable 找到 status = connected 的裝置
+      operationId: getConnectionStatus
+      tags:
+        - DeviceControl
+      responses:
+        "200":
+          description: 成功取得連線狀態
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectionStatusResponse"
+        "500":
+          description: 伺服器錯誤
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      x-amazon-apigateway-integration:
+        type: aws_proxy
+        httpMethod: POST
+        uri: arn:aws:apigateway:ap-northeast-3:lambda:path/2015-03-31/functions/arn:aws:lambda:ap-northeast-3:788670787672:function:signfy-recordings-device-control/invocations
+        passthroughBehavior: when_no_match
+    options:
+      summary: CORS preflight
+      tags:
+        - CORS
+      responses:
+        "200":
+          description: CORS preflight response
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+      x-amazon-apigateway-integration:
+        type: mock
+        requestTemplates:
+          application/json: '{"statusCode": 200}'
+        responses:
+          default:
+            statusCode: "200"
+            responseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+
+  /recording/start:
+    post:
+      summary: 開始錄影
+      description: 透過 WebSocket 通知 Client A 開始錄影
+      operationId: startRecording
+      tags:
+        - DeviceControl
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartRecordingRequest"
+      responses:
+        "200":
+          description: 錄影已開始
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StartRecordingResponse"
+        "400":
+          description: 參數錯誤或無裝置連線
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: 伺服器錯誤
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      x-amazon-apigateway-integration:
+        type: aws_proxy
+        httpMethod: POST
+        uri: arn:aws:apigateway:ap-northeast-3:lambda:path/2015-03-31/functions/arn:aws:lambda:ap-northeast-3:788670787672:function:signfy-recordings-device-control/invocations
+        passthroughBehavior: when_no_match
+    options:
+      summary: CORS preflight
+      tags:
+        - CORS
+      responses:
+        "200":
+          description: CORS preflight response
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+      x-amazon-apigateway-integration:
+        type: mock
+        requestTemplates:
+          application/json: '{"statusCode": 200}'
+        responses:
+          default:
+            statusCode: "200"
+            responseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+
+  /recording/stop:
+    post:
+      summary: 停止錄影
+      description: 透過 WebSocket 通知 Client A 停止錄影
+      operationId: stopRecording
+      tags:
+        - DeviceControl
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StopRecordingRequest"
+      responses:
+        "200":
+          description: 停止錄影信號已送出
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StopRecordingResponse"
+        "400":
+          description: 無裝置連線
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: 伺服器錯誤
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      x-amazon-apigateway-integration:
+        type: aws_proxy
+        httpMethod: POST
+        uri: arn:aws:apigateway:ap-northeast-3:lambda:path/2015-03-31/functions/arn:aws:lambda:ap-northeast-3:788670787672:function:signfy-recordings-device-control/invocations
+        passthroughBehavior: when_no_match
+    options:
+      summary: CORS preflight
+      tags:
+        - CORS
+      responses:
+        "200":
+          description: CORS preflight response
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+      x-amazon-apigateway-integration:
+        type: mock
+        requestTemplates:
+          application/json: '{"statusCode": 200}'
+        responses:
+          default:
+            statusCode: "200"
+            responseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+
+  # ===========================================================
+  # Action Service
+  # ===========================================================
+  /actions:
+    get:
+      summary: 列出所有動作類別
+      description: 掃描 ActionsTable，依 createdAt 排序（最新在前）
+      operationId: listActions
+      tags:
+        - Action
+      responses:
+        "200":
+          description: 成功取得動作列表
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListActionsResponse"
+        "500":
+          description: 伺服器錯誤
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      x-amazon-apigateway-integration:
+        type: aws_proxy
+        httpMethod: POST
+        uri: arn:aws:apigateway:ap-northeast-3:lambda:path/2015-03-31/functions/arn:aws:lambda:ap-northeast-3:788670787672:function:signfy-recordings-action/invocations
+        passthroughBehavior: when_no_match
+    post:
+      summary: 新增動作類別
+      description: 建立一個新的動作類別（actionName 不可重複）
+      operationId: createAction
+      tags:
+        - Action
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateActionRequest"
+      responses:
+        "201":
+          description: 動作已建立
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateActionResponse"
+        "400":
+          description: 缺少 actionName
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: 動作已存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: 伺服器錯誤
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      x-amazon-apigateway-integration:
+        type: aws_proxy
+        httpMethod: POST
+        uri: arn:aws:apigateway:ap-northeast-3:lambda:path/2015-03-31/functions/arn:aws:lambda:ap-northeast-3:788670787672:function:signfy-recordings-action/invocations
+        passthroughBehavior: when_no_match
+    options:
+      summary: CORS preflight
+      tags:
+        - CORS
+      responses:
+        "200":
+          description: CORS preflight response
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+      x-amazon-apigateway-integration:
+        type: mock
+        requestTemplates:
+          application/json: '{"statusCode": 200}'
+        responses:
+          default:
+            statusCode: "200"
+            responseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+
+  /actions/{actionName}/recordings:
+    get:
+      summary: 列出某動作下所有錄影
+      description: 使用 GSI (actionName-createdAt-index) 查詢，支援 includeInactive 參數
+      operationId: listRecordingsByAction
+      tags:
+        - Action
+      parameters:
+        - name: actionName
+          in: path
+          required: true
+          description: 動作名稱
+          schema:
+            type: string
+        - name: includeInactive
+          in: query
+          required: false
+          description: 是否包含已刪除（軟刪除）的錄影，預設 false
+          schema:
+            type: string
+            enum:
+              - "true"
+              - "false"
+            default: "false"
+      responses:
+        "200":
+          description: 成功取得錄影列表
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListRecordingsResponse"
+        "400":
+          description: 缺少 actionName
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: 伺服器錯誤
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      x-amazon-apigateway-integration:
+        type: aws_proxy
+        httpMethod: POST
+        uri: arn:aws:apigateway:ap-northeast-3:lambda:path/2015-03-31/functions/arn:aws:lambda:ap-northeast-3:788670787672:function:signfy-recordings-action/invocations
+        passthroughBehavior: when_no_match
+    options:
+      summary: CORS preflight
+      tags:
+        - CORS
+      parameters:
+        - name: actionName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: CORS preflight response
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+      x-amazon-apigateway-integration:
+        type: mock
+        requestTemplates:
+          application/json: '{"statusCode": 200}'
+        responses:
+          default:
+            statusCode: "200"
+            responseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+
+  # ===========================================================
+  # Recording Service
+  # ===========================================================
+  /recordings/{recordingId}:
+    get:
+      summary: 取得錄影 metadata
+      description: 依 recordingId 查詢錄影的完整 metadata
+      operationId: getRecording
+      tags:
+        - Recording
+      parameters:
+        - name: recordingId
+          in: path
+          required: true
+          description: 錄影 UUID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: 成功取得錄影資訊
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetRecordingResponse"
+        "400":
+          description: 缺少 recordingId
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: 錄影不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: 伺服器錯誤
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      x-amazon-apigateway-integration:
+        type: aws_proxy
+        httpMethod: POST
+        uri: arn:aws:apigateway:ap-northeast-3:lambda:path/2015-03-31/functions/arn:aws:lambda:ap-northeast-3:788670787672:function:signfy-recordings-recording/invocations
+        passthroughBehavior: when_no_match
+    delete:
+      summary: 軟刪除錄影
+      description: 標記 isActive = false，不真正刪除資料
+      operationId: softDeleteRecording
+      tags:
+        - Recording
+      parameters:
+        - name: recordingId
+          in: path
+          required: true
+          description: 錄影 UUID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: 錄影已軟刪除
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteRecordingResponse"
+        "400":
+          description: 缺少 recordingId
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: 錄影不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: 伺服器錯誤
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      x-amazon-apigateway-integration:
+        type: aws_proxy
+        httpMethod: POST
+        uri: arn:aws:apigateway:ap-northeast-3:lambda:path/2015-03-31/functions/arn:aws:lambda:ap-northeast-3:788670787672:function:signfy-recordings-recording/invocations
+        passthroughBehavior: when_no_match
+    options:
+      summary: CORS preflight
+      tags:
+        - CORS
+      parameters:
+        - name: recordingId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: CORS preflight response
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+      x-amazon-apigateway-integration:
+        type: mock
+        requestTemplates:
+          application/json: '{"statusCode": 200}'
+        responses:
+          default:
+            statusCode: "200"
+            responseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,DELETE,OPTIONS'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+
+  /recordings/{recordingId}/data:
+    get:
+      summary: 取得錄影幀數據
+      description: |
+        預設回傳 S3 presigned download URL。
+        若 returnType=data，直接回傳 JSON 數據。
+      operationId: getRecordingData
+      tags:
+        - Recording
+      parameters:
+        - name: recordingId
+          in: path
+          required: true
+          description: 錄影 UUID
+          schema:
+            type: string
+            format: uuid
+        - name: returnType
+          in: query
+          required: false
+          description: "回傳方式：'url'（預設）回傳 presigned URL，'data' 直接回傳數據"
+          schema:
+            type: string
+            enum:
+              - url
+              - data
+            default: url
+      responses:
+        "200":
+          description: 成功取得錄影數據或下載連結
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecordingDataResponse"
+        "400":
+          description: 缺少 recordingId
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: 錄影不存在或無數據
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: 伺服器錯誤
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      x-amazon-apigateway-integration:
+        type: aws_proxy
+        httpMethod: POST
+        uri: arn:aws:apigateway:ap-northeast-3:lambda:path/2015-03-31/functions/arn:aws:lambda:ap-northeast-3:788670787672:function:signfy-recordings-recording/invocations
+        passthroughBehavior: when_no_match
+    options:
+      summary: CORS preflight
+      tags:
+        - CORS
+      parameters:
+        - name: recordingId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: CORS preflight response
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+      x-amazon-apigateway-integration:
+        type: mock
+        requestTemplates:
+          application/json: '{"statusCode": 200}'
+        responses:
+          default:
+            statusCode: "200"
+            responseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,OPTIONS'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+
+  /recordings/{recordingId}/trim:
+    put:
+      summary: 裁切錄影
+      description: |
+        儲存裁切的起始幀與結束幀到 DynamoDB。
+        不另存 S3 檔案，前端讀取 raw.json 後依據標記擷取對應幀。
+      operationId: trimRecording
+      tags:
+        - Recording
+      parameters:
+        - name: recordingId
+          in: path
+          required: true
+          description: 錄影 UUID
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TrimRecordingRequest"
+      responses:
+        "200":
+          description: 裁切成功
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrimRecordingResponse"
+        "400":
+          description: 參數錯誤（缺少欄位、範圍無效、超出 totalFrames）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: 錄影不存在
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: 伺服器錯誤
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      x-amazon-apigateway-integration:
+        type: aws_proxy
+        httpMethod: POST
+        uri: arn:aws:apigateway:ap-northeast-3:lambda:path/2015-03-31/functions/arn:aws:lambda:ap-northeast-3:788670787672:function:signfy-recordings-recording/invocations
+        passthroughBehavior: when_no_match
+    options:
+      summary: CORS preflight
+      tags:
+        - CORS
+      parameters:
+        - name: recordingId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: CORS preflight response
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+      x-amazon-apigateway-integration:
+        type: mock
+        requestTemplates:
+          application/json: '{"statusCode": 200}'
+        responses:
+          default:
+            statusCode: "200"
+            responseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Methods: "'PUT,OPTIONS'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+
+# ===========================================================
+# Components
+# ===========================================================
+components:
+  schemas:
+    # ---------- Common ----------
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Missing actionName"
+
+    # ---------- Device Control ----------
+    DeviceInfo:
+      type: object
+      properties:
+        connectionId:
+          type: string
+        deviceType:
+          type: string
+          example: "AppleVisionPro"
+        deviceName:
+          type: string
+        connectedAt:
+          type: string
+          format: date-time
+
+    ConnectionStatusResponse:
+      type: object
+      properties:
+        isConnected:
+          type: boolean
+        devices:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeviceInfo"
+
+    StartRecordingRequest:
+      type: object
+      required:
+        - actionName
+      properties:
+        actionName:
+          type: string
+          description: 動作名稱
+          example: "吃飯"
+
+    StartRecordingResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Recording started"
+        recordingId:
+          type: string
+          format: uuid
+        actionName:
+          type: string
+        notifiedDevices:
+          type: integer
+
+    StopRecordingRequest:
+      type: object
+      properties:
+        recordingId:
+          type: string
+          format: uuid
+          description: 可選，指定要停止的錄影 ID
+
+    StopRecordingResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Stop recording signal sent"
+        recordingId:
+          type: string
+          nullable: true
+        notifiedDevices:
+          type: integer
+
+    # ---------- Action ----------
+    ActionItem:
+      type: object
+      properties:
+        actionName:
+          type: string
+          example: "吃飯"
+        displayName:
+          type: string
+          example: "吃飯"
+        description:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        recordingCount:
+          type: integer
+
+    ListActionsResponse:
+      type: object
+      properties:
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActionItem"
+
+    CreateActionRequest:
+      type: object
+      required:
+        - actionName
+      properties:
+        actionName:
+          type: string
+          example: "吃飯"
+        displayName:
+          type: string
+          example: "吃飯"
+        description:
+          type: string
+          example: "吃飯動作"
+
+    CreateActionResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Action created"
+        action:
+          $ref: "#/components/schemas/ActionItem"
+
+    # ---------- Recording List ----------
+    RecordingSummary:
+      type: object
+      properties:
+        recordingId:
+          type: string
+          format: uuid
+        actionName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        totalFrames:
+          type: integer
+        frameRate:
+          type: integer
+          example: 30
+        durationSec:
+          type: number
+        status:
+          type: string
+          enum:
+            - recording
+            - completed
+            - trimmed
+        isActive:
+          type: boolean
+        trimStartFrame:
+          type: integer
+          nullable: true
+        trimEndFrame:
+          type: integer
+          nullable: true
+        selectedFrameLength:
+          type: integer
+          nullable: true
+
+    ListRecordingsResponse:
+      type: object
+      properties:
+        actionName:
+          type: string
+        recordings:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecordingSummary"
+        count:
+          type: integer
+
+    # ---------- Recording Detail ----------
+    RecordingDetail:
+      type: object
+      properties:
+        recordingId:
+          type: string
+          format: uuid
+        actionName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        s3RawKey:
+          type: string
+        totalFrames:
+          type: integer
+        frameRate:
+          type: integer
+        durationSec:
+          type: number
+        trimStartFrame:
+          type: integer
+          nullable: true
+        trimEndFrame:
+          type: integer
+          nullable: true
+        selectedFrameLength:
+          type: integer
+          nullable: true
+        status:
+          type: string
+          enum:
+            - recording
+            - completed
+            - trimmed
+        isActive:
+          type: boolean
+
+    GetRecordingResponse:
+      type: object
+      properties:
+        recording:
+          $ref: "#/components/schemas/RecordingDetail"
+
+    # ---------- Recording Data ----------
+    RecordingDataResponse:
+      type: object
+      description: "回傳方式依 returnType 而定：預設回傳 downloadUrl，returnType=data 時回傳 data 欄位"
+      properties:
+        recordingId:
+          type: string
+          format: uuid
+        s3Key:
+          type: string
+        downloadUrl:
+          type: string
+          format: uri
+          description: "returnType=url 時回傳的 presigned download URL"
+        totalFrames:
+          type: integer
+        frameRate:
+          type: integer
+        durationSec:
+          type: number
+        trimStartFrame:
+          type: integer
+          nullable: true
+        trimEndFrame:
+          type: integer
+          nullable: true
+        selectedFrameLength:
+          type: integer
+          nullable: true
+        data:
+          type: object
+          description: "returnType=data 時回傳的原始幀數據 JSON"
+
+    # ---------- Trim ----------
+    TrimRecordingRequest:
+      type: object
+      required:
+        - trimStartFrame
+        - trimEndFrame
+      properties:
+        trimStartFrame:
+          type: integer
+          minimum: 0
+          description: 裁切起始幀
+          example: 10
+        trimEndFrame:
+          type: integer
+          description: 裁切結束幀
+          example: 70
+        selectedFrameLength:
+          type: integer
+          description: "選定幀數（可選，必須為 30/60/90 之一）"
+          enum:
+            - 30
+            - 60
+            - 90
+          example: 60
+
+    TrimRecordingResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Recording trimmed successfully"
+        recording:
+          $ref: "#/components/schemas/RecordingDetail"
+        trimmedFrames:
+          type: integer
+
+    # ---------- Delete ----------
+    DeleteRecordingResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Recording soft-deleted"
+        recordingId:
+          type: string
+          format: uuid
+        isActive:
+          type: boolean
+          example: false
