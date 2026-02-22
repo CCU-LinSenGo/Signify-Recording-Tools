@@ -1,0 +1,25 @@
+{
+  "name": "signfy-recording-server",
+  "version": "1.0.0",
+  "description": "Signfy Recording System - AWS Lambda Backend",
+  "private": true,
+  "scripts": {
+    "lint": "eslint functions/ shared/",
+    "package:shared": "cd shared && zip -r ../deploy/shared-layer.zip . && cd ..",
+    "package:ws": "cd functions/websocket-service && zip -r ../../deploy/websocket-service.zip . && cd ../..",
+    "package:device": "cd functions/device-control-service && zip -r ../../deploy/device-control-service.zip . && cd ../..",
+    "package:action": "cd functions/action-service && zip -r ../../deploy/action-service.zip . && cd ../..",
+    "package:recording": "cd functions/recording-service && zip -r ../../deploy/recording-service.zip . && cd ../..",
+    "package:all": "mkdir -p deploy && npm run package:shared && npm run package:ws && npm run package:device && npm run package:action && npm run package:recording"
+  },
+  "dependencies": {
+    "@aws-sdk/client-apigatewaymanagementapi": "^3.x",
+    "@aws-sdk/client-dynamodb": "^3.x",
+    "@aws-sdk/client-s3": "^3.x",
+    "@aws-sdk/lib-dynamodb": "^3.x",
+    "@aws-sdk/s3-request-presigner": "^3.x"
+  },
+  "devDependencies": {
+    "eslint": "^8.x"
+  }
+}
