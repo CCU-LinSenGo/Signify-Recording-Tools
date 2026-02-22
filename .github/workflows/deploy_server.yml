@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - 'server/**'
+      - "server/**"
   workflow_dispatch:
 
 permissions:
@@ -25,7 +25,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20' # Using 20 as 24 might not be fully supported in setup-node yet, but 20 is sufficient for packaging
+          node-version: "20" # Using 20 as 24 might not be fully supported in setup-node yet, but 20 is sufficient for packaging
 
       - name: Install Dependencies & Package
         run: |
@@ -36,7 +36,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_SIGNFY_ROLE_ARN }}
-          aws-region: ${{ secrets.AWS_SIGNFY_REGION }}
+          aws-region: ${{ vars.AWS_SIGNFY_REGION }}
 
       - name: Deploy Shared Layer
         run: |
@@ -50,7 +50,7 @@ jobs:
             --output text)
             
           echo "Published new layer version: $LAYER_VERSION_ARN"
-          
+
           # Update all functions to use the new layer version
           aws lambda update-function-configuration \
             --function-name signfy-recordings-websocket \
