@@ -89,7 +89,7 @@ server/
 ]
 ```
 
-### 3. Lambda Layer（共用程式碼）
+### 3. Lambda Layer（共用程式碼） 
 
 將 `shared/` 資料夾打包為 Lambda Layer。程式碼中使用 `/opt/shared/xxx` 路徑，所以 Layer zip 結構必須為：
 
