@@ -14,8 +14,17 @@ module.exports = {
   S3_BUCKET: process.env.S3_BUCKET || "signfy-recordings-bucket",
   PRESIGNED_URL_EXPIRY: 3600, // 1 hour
 
+  // AWS
+  AWS_REGION: process.env.AWS_REGION || "ap-northeast-3",
+
   // WebSocket
-  WEBSOCKET_ENDPOINT: process.env.WEBSOCKET_ENDPOINT || "",
+  WEBSOCKET_API_ID: process.env.WEBSOCKET_API_ID || "",
+  WEBSOCKET_STAGE: process.env.WEBSOCKET_STAGE || "production",
+  WEBSOCKET_ENDPOINT:
+    process.env.WEBSOCKET_ENDPOINT ||
+    (process.env.WEBSOCKET_API_ID
+      ? `https://${process.env.WEBSOCKET_API_ID}.execute-api.${process.env.AWS_REGION || "ap-northeast-3"}.amazonaws.com/${process.env.WEBSOCKET_STAGE || "production"}`
+      : ""),
 
   // Recording
   FRAME_RATE: 30,

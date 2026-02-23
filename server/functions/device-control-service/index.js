@@ -11,6 +11,10 @@ const {
   RECORDINGS_TABLE,
   WS_ACTIONS,
   RECORDING_STATUS,
+  CONNECTION_STATUS,
+  WEBSOCKET_ENDPOINT,
+  FRAME_RATE,
+  DEFAULT_FRAME_LENGTH,
 } = require("/opt/shared/constants");
 const { success, error } = require("/opt/shared/response");
 const db = require("/opt/shared/dynamodb");
@@ -54,7 +58,7 @@ async function getConnectionStatus() {
   const connections = await db.scanTable(
     CONNECTIONS_TABLE,
     "#s = :s",
-    { ":s": "connected" },
+    { ":s": CONNECTION_STATUS.CONNECTED },
     { "#s": "status" },
   );
 
@@ -84,7 +88,7 @@ async function startRecording(event) {
   const connections = await db.scanTable(
     CONNECTIONS_TABLE,
     "#s = :s",
-    { ":s": "connected" },
+    { ":s": CONNECTION_STATUS.CONNECTED },
     { "#s": "status" },
   );
 
@@ -104,11 +108,11 @@ async function startRecording(event) {
     createdAt: now,
     s3RawKey,
     totalFrames: 0,
-    frameRate: 30,
+    frameRate: FRAME_RATE,
     durationSec: 0,
     trimStartFrame: null,
     trimEndFrame: null,
-    selectedFrameLength: 60,
+    selectedFrameLength: DEFAULT_FRAME_LENGTH,
     status: RECORDING_STATUS.RECORDING,
     isActive: true,
   });
@@ -117,7 +121,7 @@ async function startRecording(event) {
   const uploadUrl = await s3.getPresignedPutUrl(s3RawKey);
 
   // 取得 WebSocket endpoint
-  const endpoint = getWebSocketEndpoint();
+  const endpoint = WEBSOCKET_ENDPOINT;
 
   // 通知所有連線中的 Client A 開始錄影
   const notifyPayload = {
@@ -156,7 +160,7 @@ async function stopRecording(event) {
   const connections = await db.scanTable(
     CONNECTIONS_TABLE,
     "#s = :s",
-    { ":s": "connected" },
+    { ":s": CONNECTION_STATUS.CONNECTED },
     { "#s": "status" },
   );
 
@@ -164,7 +168,7 @@ async function stopRecording(event) {
     return error("No device connected", 400);
   }
 
-  const endpoint = getWebSocketEndpoint();
+  const endpoint = WEBSOCKET_ENDPOINT;
 
   const notifyPayload = {
     action: WS_ACTIONS.STOP_RECORDING,
@@ -190,12 +194,6 @@ async function stopRecording(event) {
 // ============================
 // Helper
 // ============================
-function getWebSocketEndpoint() {
-  const apiId = process.env.WEBSOCKET_API_ID;
-  const region = process.env.AWS_REGION || "ap-northeast-3";
-  const stage = process.env.WEBSOCKET_STAGE || "production";
-  return `https://${apiId}.execute-api.${region}.amazonaws.com/${stage}`;
-}
 
 function generateUUID() {
   // Simple UUID v4
