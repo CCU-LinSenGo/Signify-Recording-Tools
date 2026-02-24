@@ -99,7 +99,7 @@ async function startRecording(event) {
   // 產生 recordingId
   const recordingId = generateUUID();
   const now = new Date().toISOString();
-  const s3RawKey = `${actionName}/${recordingId}/raw.json`;
+  const s3RawKey = `${actionName}/${recordingId}/raw.csv`;
 
   // 先建立錄影記錄（status = recording）
   await db.putItem(RECORDINGS_TABLE, {

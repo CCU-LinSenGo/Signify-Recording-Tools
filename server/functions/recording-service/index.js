@@ -93,9 +93,9 @@ async function getRecordingData(recordingId, event) {
   const returnType = qs.returnType || "url"; // 'url' | 'data'
 
   if (returnType === "data") {
-    // 直接回傳 JSON 數據（小型數據可用，大型建議用 presigned URL）
+    // 直接回傳 CSV 數據（小型數據可用，大型建議用 presigned URL）
     try {
-      const data = await s3.getJsonFromS3(s3Key);
+      const data = await s3.getCsvFromS3(s3Key);
       return success({
         recordingId,
         s3Key,
@@ -167,7 +167,7 @@ async function trimRecording(recordingId, event) {
   }
 
   // 只更新 DynamoDB 的 trim 標記，不另存 S3 檔案
-  // Client B 讀取 raw.json 後根據 trimStartFrame / trimEndFrame 在前端擷取對應幀
+  // Client B 讀取 raw.csv 後根據 trimStartFrame / trimEndFrame 在前端擷取對應幀
   const updated = await db.updateItem(
     RECORDINGS_TABLE,
     { recordingId },
