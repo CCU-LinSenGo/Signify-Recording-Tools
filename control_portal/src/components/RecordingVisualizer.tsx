@@ -52,12 +52,14 @@ export default function RecordingVisualizer({ recordingId }: { recordingId: stri
     // Playback state
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
+    const [isPlayAll, setIsPlayAll] = useState(false);
 
     // Trimming State
     const [selectedLength, setSelectedLength] = useState<number>(60); // 30, 60, 90
     const [trimStartIndex, setTrimStartIndex] = useState<number>(0);
 
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const sideCanvasRef = useRef<HTMLCanvasElement>(null);
 
     useEffect(() => {
         let active = true;
@@ -114,7 +116,8 @@ export default function RecordingVisualizer({ recordingId }: { recordingId: stri
         let animationFrameId: number;
         let lastTime = 0;
         // targeting 30fps = ~33.3ms per frame
-        const fpsInterval = 1000 / 30;
+        const fpsInterval = 44.4;
+        const totalFrames = frames.length;
 
         const renderLoop = (time: number) => {
             if (isPlaying) {
@@ -125,6 +128,10 @@ export default function RecordingVisualizer({ recordingId }: { recordingId: stri
                     lastTime = time - (elapsed % fpsInterval);
                     setCurrentFrameIndex(prev => {
                         const next = prev + 1;
+                        if (isPlayAll) {
+                            // Play all: loop through entire recording
+                            return next >= totalFrames ? 0 : next;
+                        }
                         // Play only within trim boundaries
                         return next >= trimStartIndex + selectedLength ? trimStartIndex : next;
                     });
@@ -135,23 +142,23 @@ export default function RecordingVisualizer({ recordingId }: { recordingId: stri
 
         animationFrameId = requestAnimationFrame(renderLoop);
         return () => cancelAnimationFrame(animationFrameId);
-    }, [isPlaying, trimStartIndex, selectedLength]);
+    }, [isPlaying, isPlayAll, trimStartIndex, selectedLength, frames.length]);
 
     // Restart when selectedLength or trimStart changes
     useEffect(() => {
         setCurrentFrameIndex(trimStartIndex);
     }, [trimStartIndex, selectedLength]);
 
-    // Draw 2D Canvas rendering of the joints with skeletal connections
-    useEffect(() => {
-        const canvas = canvasRef.current;
-        if (!canvas || frames.length === 0) return;
+    // ---- Shared drawing function for both views ----
+    const drawHandView = (
+        canvas: HTMLCanvasElement,
+        frameObj: FrameData,
+        getXCoord: (j: DataRow) => number,
+        getYCoord: (j: DataRow) => number,
+        viewLabel: string
+    ) => {
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
-
-        // We make sure the index is within bounds
-        const frameObj = frames[Math.min(currentFrameIndex, frames.length - 1)];
-        if (!frameObj) return;
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -181,10 +188,12 @@ export default function RecordingVisualizer({ recordingId }: { recordingId: stri
         // ---- Auto-fit: compute bounding box of all valid joints ----
         let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
         validJoints.forEach(j => {
-            minX = Math.min(minX, j.pos_x);
-            maxX = Math.max(maxX, j.pos_x);
-            minY = Math.min(minY, j.pos_y);
-            maxY = Math.max(maxY, j.pos_y);
+            const xVal = getXCoord(j);
+            const yVal = getYCoord(j);
+            minX = Math.min(minX, xVal);
+            maxX = Math.max(maxX, xVal);
+            minY = Math.min(minY, yVal);
+            maxY = Math.max(maxY, yVal);
         });
 
         const dataW = maxX - minX || 0.001;
@@ -192,35 +201,28 @@ export default function RecordingVisualizer({ recordingId }: { recordingId: stri
         const dataCx = (minX + maxX) / 2;
         const dataCy = (minY + maxY) / 2;
 
-        const padding = 80; // px padding on each side
+        const padding = 80;
         const availW = canvas.width - padding * 2;
         const availH = canvas.height - padding * 2;
         const scale = Math.min(availW / dataW, availH / dataH);
 
-        // Transform data coordinates to canvas pixel coordinates
         const toCanvas = (x: number, y: number): [number, number] => {
             const px = canvas.width / 2 + (x - dataCx) * scale;
-            const py = canvas.height / 2 - (y - dataCy) * scale; // negate Y
+            const py = canvas.height / 2 - (y - dataCy) * scale;
             return [px, py];
         };
 
-        // ---- Skeletal bone connections (Unity XR Hands joint names) ----
+        // ---- Skeletal bone connections ----
         const bones: [string, string][] = [
-            // Thumb chain
             ['Wrist', 'ThumbMetacarpal'], ['ThumbMetacarpal', 'ThumbProximal'], ['ThumbProximal', 'ThumbDistal'], ['ThumbDistal', 'ThumbTip'],
-            // Index chain
             ['Wrist', 'IndexMetacarpal'], ['IndexMetacarpal', 'IndexProximal'], ['IndexProximal', 'IndexIntermediate'], ['IndexIntermediate', 'IndexDistal'], ['IndexDistal', 'IndexTip'],
-            // Middle chain
             ['Wrist', 'MiddleMetacarpal'], ['MiddleMetacarpal', 'MiddleProximal'], ['MiddleProximal', 'MiddleIntermediate'], ['MiddleIntermediate', 'MiddleDistal'], ['MiddleDistal', 'MiddleTip'],
-            // Ring chain
             ['Wrist', 'RingMetacarpal'], ['RingMetacarpal', 'RingProximal'], ['RingProximal', 'RingIntermediate'], ['RingIntermediate', 'RingDistal'], ['RingDistal', 'RingTip'],
-            // Little chain
             ['Wrist', 'LittleMetacarpal'], ['LittleMetacarpal', 'LittleProximal'], ['LittleProximal', 'LittleIntermediate'], ['LittleIntermediate', 'LittleDistal'], ['LittleDistal', 'LittleTip'],
-            // Palm cross-connections (knuckle ridge)
             ['IndexMetacarpal', 'MiddleMetacarpal'], ['MiddleMetacarpal', 'RingMetacarpal'], ['RingMetacarpal', 'LittleMetacarpal'],
+            ['ForearmArm', 'Wrist'],
         ];
 
-        // Finger chains for fleshy rendering
         const fingerChains: string[][] = [
             ['ThumbMetacarpal', 'ThumbProximal', 'ThumbDistal', 'ThumbTip'],
             ['IndexMetacarpal', 'IndexProximal', 'IndexIntermediate', 'IndexDistal', 'IndexTip'],
@@ -229,13 +231,9 @@ export default function RecordingVisualizer({ recordingId }: { recordingId: stri
             ['LittleMetacarpal', 'LittleProximal', 'LittleIntermediate', 'LittleDistal', 'LittleTip'],
         ];
 
-        // Tip joint IDs
         const tipJoints = new Set(['ThumbTip', 'IndexTip', 'MiddleTip', 'RingTip', 'LittleTip']);
-
-        // Palm polygon vertices
         const palmVertices = ['Wrist', 'ThumbMetacarpal', 'IndexMetacarpal', 'MiddleMetacarpal', 'RingMetacarpal', 'LittleMetacarpal'];
 
-        // Colors per hand — warm skin tones for left (orange), cool tones for right (teal)
         const handColors: Record<string, { skin: string; skinLight: string; bone: string; joint: string; jointHighlight: string; label: string }> = {
             left: {
                 skin: 'rgba(255, 160, 100, 0.55)',
@@ -255,7 +253,7 @@ export default function RecordingVisualizer({ recordingId }: { recordingId: stri
             },
         };
 
-        // Group joints by hand — map L→left, R→right
+        // Group joints by hand
         const handGroups = new Map<string, Map<string, DataRow>>();
         validJoints.forEach(j => {
             const rawHand = j.hand.toLowerCase();
@@ -268,10 +266,9 @@ export default function RecordingVisualizer({ recordingId }: { recordingId: stri
         handGroups.forEach((jointMap, hand) => {
             const colors = handColors[hand] || handColors.right;
 
-            // Helper: get canvas position for a joint name
             const getPos = (name: string): [number, number] | null => {
                 const j = jointMap.get(name);
-                return j ? toCanvas(j.pos_x, j.pos_y) : null;
+                return j ? toCanvas(getXCoord(j), getYCoord(j)) : null;
             };
 
             // === Layer 1: Filled palm area ===
@@ -298,7 +295,6 @@ export default function RecordingVisualizer({ recordingId }: { recordingId: stri
                 });
                 if (points.length < 2) return;
 
-                // Thick fleshy stroke
                 ctx.lineWidth = 16;
                 ctx.strokeStyle = colors.skin;
                 ctx.lineCap = 'round';
@@ -308,7 +304,6 @@ export default function RecordingVisualizer({ recordingId }: { recordingId: stri
                 points.slice(1).forEach(([x, y]) => ctx.lineTo(x, y));
                 ctx.stroke();
 
-                // Slightly thinner lighter inner stroke for 3D effect
                 ctx.lineWidth = 8;
                 ctx.strokeStyle = colors.skinLight;
                 ctx.beginPath();
@@ -316,6 +311,31 @@ export default function RecordingVisualizer({ recordingId }: { recordingId: stri
                 points.slice(1).forEach(([x, y]) => ctx.lineTo(x, y));
                 ctx.stroke();
             });
+
+            // === Forearm tube ===
+            {
+                const forearmPoints: [number, number][] = [];
+                ['ForearmArm', 'Wrist'].forEach(name => {
+                    const p = getPos(name);
+                    if (p) forearmPoints.push(p);
+                });
+                if (forearmPoints.length === 2) {
+                    ctx.lineWidth = 24;
+                    ctx.strokeStyle = colors.skin;
+                    ctx.lineCap = 'round';
+                    ctx.beginPath();
+                    ctx.moveTo(forearmPoints[0][0], forearmPoints[0][1]);
+                    ctx.lineTo(forearmPoints[1][0], forearmPoints[1][1]);
+                    ctx.stroke();
+
+                    ctx.lineWidth = 14;
+                    ctx.strokeStyle = colors.skinLight;
+                    ctx.beginPath();
+                    ctx.moveTo(forearmPoints[0][0], forearmPoints[0][1]);
+                    ctx.lineTo(forearmPoints[1][0], forearmPoints[1][1]);
+                    ctx.stroke();
+                }
+            }
 
             // === Layer 3: Rounded fingertip caps ===
             tipJoints.forEach(tipName => {
@@ -345,18 +365,16 @@ export default function RecordingVisualizer({ recordingId }: { recordingId: stri
 
             // === Layer 5: Joint dots ===
             jointMap.forEach((j, id) => {
-                const [px, py] = toCanvas(j.pos_x, j.pos_y);
+                const [px, py] = toCanvas(getXCoord(j), getYCoord(j));
 
                 const isTip = tipJoints.has(id);
                 const radius = isTip ? 5 : 3.5;
 
-                // Joint dot
                 ctx.beginPath();
                 ctx.arc(px, py, radius, 0, Math.PI * 2);
                 ctx.fillStyle = colors.joint;
                 ctx.fill();
 
-                // Highlight
                 ctx.beginPath();
                 ctx.arc(px - 0.8, py - 0.8, radius * 0.4, 0, Math.PI * 2);
                 ctx.fillStyle = colors.jointHighlight;
@@ -373,11 +391,16 @@ export default function RecordingVisualizer({ recordingId }: { recordingId: stri
             }
         });
 
-        // Draw frame counter
+        // View label (top-left)
+        ctx.fillStyle = '#555';
+        ctx.font = 'bold 14px Inter, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(viewLabel, 16, 24);
+
+        // Frame counter
         ctx.fillStyle = '#888';
         ctx.font = '13px Inter, sans-serif';
-        ctx.textAlign = 'left';
-        ctx.fillText(`Frame: ${currentFrameIndex} | Sample: ${frameObj.sample}`, 16, 24);
+        ctx.fillText(`Frame: ${currentFrameIndex} | Sample: ${frameObj.sample}`, 16, 44);
 
         // Legend
         ctx.textAlign = 'right';
@@ -385,6 +408,22 @@ export default function RecordingVisualizer({ recordingId }: { recordingId: stri
         ctx.fillText('● 左手', canvas.width - 16, 24);
         ctx.fillStyle = 'rgba(10, 160, 110, 0.9)';
         ctx.fillText('● 右手', canvas.width - 16, 44);
+    };
+
+    // Draw both views on frame change
+    useEffect(() => {
+        if (frames.length === 0) return;
+        const frameObj = frames[Math.min(currentFrameIndex, frames.length - 1)];
+        if (!frameObj) return;
+
+        // Front view — X / Y
+        if (canvasRef.current) {
+            drawHandView(canvasRef.current, frameObj, j => j.pos_x, j => j.pos_y, '正面 (X / Y)');
+        }
+        // Side view — Z / Y
+        if (sideCanvasRef.current) {
+            drawHandView(sideCanvasRef.current, frameObj, j => j.pos_z, j => j.pos_y, '側面 (Z / Y)');
+        }
     }, [currentFrameIndex, frames]);
 
     const handleSaveTrim = async () => {
@@ -420,26 +459,52 @@ export default function RecordingVisualizer({ recordingId }: { recordingId: stri
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
-            {/* Visualizer Canvas Area */}
-            <div className="card" style={{ padding: '16px', display: 'flex', justifyContent: 'center', backgroundColor: '#fafafa' }}>
-                <canvas
-                    ref={canvasRef}
-                    width={640}
-                    height={480}
-                    style={{ width: '100%', maxWidth: '640px', height: 'auto', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}
-                />
+            {/* Visualizer Canvas Area — Front + Side */}
+            <div className="card" style={{ padding: '16px', display: 'flex', gap: '16px', justifyContent: 'center', backgroundColor: '#fafafa', flexWrap: 'wrap' }}>
+                <div style={{ flex: '1 1 0', minWidth: '300px', maxWidth: '640px' }}>
+                    <canvas
+                        ref={canvasRef}
+                        width={640}
+                        height={480}
+                        style={{ width: '100%', height: 'auto', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}
+                    />
+                </div>
+                <div style={{ flex: '1 1 0', minWidth: '300px', maxWidth: '640px' }}>
+                    <canvas
+                        ref={sideCanvasRef}
+                        width={640}
+                        height={480}
+                        style={{ width: '100%', height: 'auto', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}
+                    />
+                </div>
             </div>
 
             {/* Playback Controls */}
             <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
                 <div style={{ display: 'flex', justifyContent: 'center', gap: '16px' }}>
-                    <button className="btn-secondary" onClick={() => { setIsPlaying(false); setCurrentFrameIndex(trimStartIndex); }}>
-                        <RotateCcw size={20} /> 重頭播放
+                    <button className="btn-secondary" onClick={() => { setIsPlaying(false); setIsPlayAll(false); setCurrentFrameIndex(trimStartIndex); }}>
+                        <RotateCcw size={20} /> 重設片段
                     </button>
 
-                    <button className="btn-primary" onClick={() => setIsPlaying(!isPlaying)}>
-                        {isPlaying ? <><Pause size={20} /> 暫停</> : <><Play size={20} /> 播放</>}
+                    <button className="btn-primary" onClick={() => {
+                        if (isPlaying) {
+                            setIsPlaying(false);
+                        } else {
+                            setIsPlayAll(false);
+                            setCurrentFrameIndex(trimStartIndex);
+                            setIsPlaying(true);
+                        }
+                    }}>
+                        {isPlaying ? <><Pause size={20} /> 暫停</> : <><Play size={20} /> 播放片段</>}
+                    </button>
+
+                    <button className="btn-secondary" onClick={() => {
+                        setIsPlayAll(true);
+                        setCurrentFrameIndex(0);
+                        setIsPlaying(true);
+                    }}>
+                        <Play size={20} /> 從頭到尾
                     </button>
                 </div>
 

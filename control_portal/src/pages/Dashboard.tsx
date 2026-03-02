@@ -52,6 +52,13 @@ const Dashboard = () => {
         };
     }, [isRecording, isStopping]);
 
+    // Reset isStopping only when recording status actually changes away from 'recording'
+    useEffect(() => {
+        if (!isRecording && isStopping) {
+            setIsStopping(false);
+        }
+    }, [isRecording, isStopping]);
+
     const handleStart = async () => {
         if (!selectedAction) return;
         setRecordingError(null);
@@ -78,7 +85,6 @@ const Dashboard = () => {
             await stopRecording();
         } catch (err: any) {
             setRecordingError(err?.message || '停止錄影失敗');
-        } finally {
             setIsStopping(false);
         }
     };
