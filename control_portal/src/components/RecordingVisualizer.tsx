@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { api, type Recording } from '../services/api';
 import { Play, Pause, Save, Trash2, RotateCcw } from 'lucide-react';
 
@@ -449,6 +449,23 @@ export default function RecordingVisualizer({ recordingId }: { recordingId: stri
         }
     };
 
+    const untrackedInfo = useMemo(() => {
+        const left: number[] = [];
+        const right: number[] = [];
+        frames.forEach((f, idx) => {
+            let leftTracked = false;
+            let rightTracked = false;
+            f.joints.forEach(j => {
+                const h = j.hand.toLowerCase();
+                if ((h === 'l' || h === 'left') && j.isValid && j.isTracked) leftTracked = true;
+                if ((h === 'r' || h === 'right') && j.isValid && j.isTracked) rightTracked = true;
+            });
+            if (!leftTracked) left.push(idx);
+            if (!rightTracked) right.push(idx);
+        });
+        return { left, right };
+    }, [frames]);
+
     if (loading) return <div className="card" style={{ padding: '48px', textAlign: 'center' }}>載入中...</div>;
     if (!recording || frames.length === 0) return <div className="card" style={{ padding: '48px', textAlign: 'center' }}>無數據或是無法讀取</div>;
 
@@ -566,6 +583,32 @@ export default function RecordingVisualizer({ recordingId }: { recordingId: stri
                             width: '2px', backgroundColor: 'var(--color-danger)',
                             pointerEvents: 'none', zIndex: 5
                         }}></div>
+                    </div>
+
+                    {/* Untracked hand indicators */}
+                    <div style={{ position: 'relative', height: '12px', marginTop: '6px', marginBottom: '14px' }}>
+                        {untrackedInfo.left.map(frameIdx => (
+                            <div key={`l-${frameIdx}`} style={{
+                                position: 'absolute', top: 0,
+                                left: `${(frameIdx / totalFramesAvailable) * 100}%`,
+                                width: '4px', height: '4px', borderRadius: '50%',
+                                backgroundColor: 'rgba(220, 90, 30, 0.9)'
+                            }} title={`左手遺失 (Frame ${frameIdx})`} />
+                        ))}
+                        {untrackedInfo.right.map(frameIdx => (
+                            <div key={`r-${frameIdx}`} style={{
+                                position: 'absolute', top: '8px',
+                                left: `${(frameIdx / totalFramesAvailable) * 100}%`,
+                                width: '4px', height: '4px', borderRadius: '50%',
+                                backgroundColor: 'rgba(10, 160, 110, 0.9)'
+                            }} title={`右手遺失 (Frame ${frameIdx})`} />
+                        ))}
+                        <div style={{ position: 'absolute', right: 0, top: '-2px', fontSize: '0.7rem', color: 'rgba(220, 90, 30, 0.9)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'rgba(220, 90, 30, 0.9)' }}></div> 左手遺失
+                        </div>
+                        <div style={{ position: 'absolute', right: 0, top: '8px', fontSize: '0.7rem', color: 'rgba(10, 160, 110, 0.9)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'rgba(10, 160, 110, 0.9)' }}></div> 右手遺失
+                        </div>
                     </div>
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>

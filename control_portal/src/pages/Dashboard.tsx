@@ -97,15 +97,7 @@ const Dashboard = () => {
         return `${m}:${s}`;
     };
 
-    // If we just finished recording and want to review/trim
-    if (showVisualizer) {
-        return (
-            <div className="container">
-                <h2 style={{ fontSize: '1.5rem', marginBottom: '24px' }}>回放與編輯錄影數據</h2>
-                <RecordingVisualizer recordingId={activeRecordingId!} />
-            </div>
-        );
-    }
+    // The visualizer is now rendered below the recording controls
 
     return (
         <div className="container" style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '800px', margin: '40px auto' }}>
@@ -251,6 +243,14 @@ const Dashboard = () => {
                     </div>
                 )}
             </div>
+
+            {/* Visualizer Component */}
+            {showVisualizer && activeRecordingId && (
+                <div style={{ marginTop: '16px', borderTop: '1px solid var(--color-border)', paddingTop: '32px' }}>
+                    <h2 style={{ fontSize: '1.5rem', marginBottom: '24px', textAlign: 'center' }}>回放與編輯錄影數據</h2>
+                    <RecordingVisualizer recordingId={activeRecordingId!} />
+                </div>
+            )}
 
         </div>
     );

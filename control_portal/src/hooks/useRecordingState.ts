@@ -32,7 +32,7 @@ export function useRecordingState() {
 
     // Poll active recording status if there is one
     useEffect(() => {
-        let intervalId: ReturnType<typeof setInterval>;
+        let intervalId: ReturnType<typeof setInterval> | null = null;
 
         const fetchActiveRecording = async () => {
             if (!activeRecordingId) return;
@@ -42,7 +42,10 @@ export function useRecordingState() {
 
                 // Stop polling if recording is completed or trimmed
                 if (recording.status === 'completed' || recording.status === 'trimmed') {
-                    setActiveRecordingId(null); // Clear active polling id
+                    if (intervalId) {
+                        clearInterval(intervalId);
+                        intervalId = null;
+                    }
                 }
             } catch (error) {
                 console.error("Failed to fetch recording:", error);
@@ -51,7 +54,7 @@ export function useRecordingState() {
 
         if (activeRecordingId) {
             fetchActiveRecording();
-            intervalId = setInterval(fetchActiveRecording, 3000); // Poll every 10 seconds
+            intervalId = setInterval(fetchActiveRecording, 500); // Poll every 0.5 seconds
         } else {
             setActiveRecording(null);
         }
