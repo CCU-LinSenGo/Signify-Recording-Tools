@@ -64,11 +64,12 @@ export function useRecordingState() {
         };
     }, [activeRecordingId]);
 
-    const startRecording = useCallback(async (actionName: string, description?: string) => {
+    const startRecording = useCallback(async (actionName: string, description?: string, enableAnimationRecording = false) => {
         try {
             const { recordingId } = await api.startRecording({
                 actionName,
                 description: description?.trim() ? description.trim() : null,
+                enableAnimationRecording,
             });
             setActiveRecordingId(recordingId);
             return recordingId;

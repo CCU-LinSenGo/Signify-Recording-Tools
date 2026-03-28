@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRecordingState } from '../hooks/useRecordingState';
 import { api, type Action } from '../services/api';
-import { Play, Square, Loader, AlertCircle } from 'lucide-react';
+import { Play, Square, Loader, AlertCircle, ChevronDown } from 'lucide-react';
 import RecordingVisualizer from '../components/RecordingVisualizer';
 
 const Dashboard = () => {
@@ -16,6 +16,7 @@ const Dashboard = () => {
     const [actions, setActions] = useState<Action[]>([]);
     const [selectedAction, setSelectedAction] = useState<string>('');
     const [recordingDescription, setRecordingDescription] = useState<string>('');
+    const [enableAnimationRecording, setEnableAnimationRecording] = useState(false);
     const [countdown, setCountdown] = useState<number | null>(null);
     const [recordingElapsed, setRecordingElapsed] = useState(0);
     const [isStopping, setIsStopping] = useState(false);
@@ -66,7 +67,7 @@ const Dashboard = () => {
 
         // Send startRecording immediately (device also counts down)
         try {
-            await startRecording(selectedAction, recordingDescription);
+            await startRecording(selectedAction, recordingDescription, enableAnimationRecording);
         } catch (err: any) {
             setRecordingError(err?.message || '無法啟動錄影，請確認裝置連線狀態');
             return;
@@ -123,18 +124,15 @@ const Dashboard = () => {
             )}
 
             <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>選擇錄製動作</label>
+                <div className="recording-config-grid">
+                    <div className="recording-config-field">
+                        <label className="recording-config-label">選擇錄製動作</label>
+                        <div className="recording-input-shell">
                         <select
+                            className="recording-input control-select"
                             value={selectedAction}
                             onChange={e => setSelectedAction(e.target.value)}
                             disabled={isRecording || countdown !== null}
-                            style={{
-                                width: '100%', padding: '12px', borderRadius: 'var(--radius-sm)',
-                                border: '1px solid var(--color-border)', fontSize: '1rem',
-                                backgroundColor: '#fff'
-                            }}
                         >
                             <option value="" disabled>請選擇動作...</option>
                             {actions.map(a => (
@@ -143,21 +141,42 @@ const Dashboard = () => {
                                 </option>
                             ))}
                         </select>
+                            <ChevronDown size={16} className="recording-select-icon" />
+                        </div>
                     </div>
 
-                    <div>
-                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>動作描述（可選）</label>
+                    <div className="recording-config-field">
+                        <label className="recording-config-label">動作描述（可選）</label>
+                        <div className="recording-input-shell">
                         <input
+                            className="recording-input"
                             value={recordingDescription}
                             onChange={e => setRecordingDescription(e.target.value)}
                             disabled={isRecording || countdown !== null}
                             placeholder="例如：第一輪測試，右手優先"
-                            style={{
-                                width: '100%', padding: '12px', borderRadius: 'var(--radius-sm)',
-                                border: '1px solid var(--color-border)', fontSize: '1rem',
-                                backgroundColor: '#fff'
-                            }}
                         />
+                        </div>
+                    </div>
+
+                    <div className="recording-config-field recording-config-toggle-field">
+                        <label className="recording-config-label">錄製動畫檔（play.anim）</label>
+                        <button
+                            type="button"
+                            className={`recording-toggle ${enableAnimationRecording ? 'is-enabled' : ''}`}
+                            onClick={() => setEnableAnimationRecording((prev) => !prev)}
+                            disabled={isRecording || countdown !== null}
+                            aria-pressed={enableAnimationRecording}
+                        >
+                            <span className="recording-toggle-text">
+                                {enableAnimationRecording ? '已啟用' : '未啟用'}
+                            </span>
+                            <span className="recording-toggle-track">
+                                <span className="recording-toggle-thumb" />
+                            </span>
+                        </button>
+                        <p className="recording-config-hint">
+                            啟用後會要求 Client A 額外上傳同目錄的 play.anim。
+                        </p>
                     </div>
                 </div>
 

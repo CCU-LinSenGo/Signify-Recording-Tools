@@ -210,3 +210,144 @@ button {
 .animate-fade-in {
   animation: fade-in 0.3s ease-out forwards;
 }
+
+/* Dashboard recording config controls */
+.recording-config-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.recording-config-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.recording-config-label {
+  font-weight: 600;
+  color: var(--color-text-main);
+  letter-spacing: 0.01em;
+}
+
+.recording-config-hint {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.recording-input-shell {
+  position: relative;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background:
+    linear-gradient(135deg, rgba(255, 140, 66, 0.06), rgba(255, 255, 255, 0.96));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.recording-input-shell:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(255, 140, 66, 0.16);
+}
+
+.recording-input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-main);
+  font-size: 0.95rem;
+  outline: none;
+}
+
+.recording-input::placeholder {
+  color: #8f8f8f;
+}
+
+.recording-input:disabled {
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.control-select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 38px;
+  cursor: pointer;
+}
+
+.recording-select-icon {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #8f8f8f;
+  pointer-events: none;
+}
+
+.recording-config-toggle-field {
+  justify-content: flex-start;
+}
+
+.recording-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 11px 14px;
+  background: #fff;
+  color: var(--color-text-main);
+  box-shadow: var(--shadow-sm);
+}
+
+.recording-toggle:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  background: #fff8f3;
+}
+
+.recording-toggle:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.recording-toggle-text {
+  font-weight: 600;
+  font-size: 0.93rem;
+}
+
+.recording-toggle-track {
+  width: 48px;
+  height: 26px;
+  border-radius: 999px;
+  background: #d1d5db;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px;
+  transition: background-color 0.2s ease;
+}
+
+.recording-toggle-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  transform: translateX(0);
+  transition: transform 0.2s ease;
+}
+
+.recording-toggle.is-enabled {
+  border-color: #fed7aa;
+  background: #fff5eb;
+}
+
+.recording-toggle.is-enabled .recording-toggle-track {
+  background: var(--color-primary);
+}
+
+.recording-toggle.is-enabled .recording-toggle-thumb {
+  transform: translateX(22px);
+}
