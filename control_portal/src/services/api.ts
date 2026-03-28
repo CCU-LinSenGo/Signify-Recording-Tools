@@ -23,6 +23,7 @@ export interface Action {
 export interface Recording {
     recordingId: string;
     actionName: string;
+    description?: string | null;
     createdAt: string;
     totalFrames: number;
     frameRate: number;
@@ -44,11 +45,19 @@ export const api = {
     },
 
     // Recording API
-    async startRecording(actionName: string): Promise<{ recordingId: string }> {
+    async startRecording(params: {
+        actionName: string;
+        description?: string | null;
+        enableAnimationRecording?: boolean;
+    }): Promise<{ recordingId: string }> {
         const res = await fetch(`${API_BASE_URL}/recording/start`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ actionName }),
+            body: JSON.stringify({
+                actionName: params.actionName,
+                description: params.description ?? null,
+                enableAnimationRecording: params.enableAnimationRecording ?? false,
+            }),
         });
         if (!res.ok) throw new Error('Failed to start recording');
         return res.json();
@@ -61,6 +70,16 @@ export const api = {
             body: JSON.stringify({ recordingId }),
         });
         if (!res.ok) throw new Error('Failed to stop recording');
+        return res.json();
+    },
+
+    async editingCompleted(recordingId?: string): Promise<{ message: string }> {
+        const res = await fetch(`${API_BASE_URL}/editing/completed`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ recordingId: recordingId ?? null }),
+        });
+        if (!res.ok) throw new Error('Failed to notify editing completed');
         return res.json();
     },
 
@@ -115,8 +134,12 @@ export const api = {
         return res.json();
     },
 
-    async getActionRecordings(actionName: string): Promise<{ recordings: Recording[]; count: number }> {
-        const res = await fetch(`${API_BASE_URL}/actions/${encodeURIComponent(actionName)}/recordings`);
+    async getActionRecordings(actionName: string, includeInactive = false): Promise<{ recordings: Recording[]; count: number }> {
+        const url = new URL(`${API_BASE_URL}/actions/${encodeURIComponent(actionName)}/recordings`);
+        if (includeInactive) {
+            url.searchParams.append('includeInactive', 'true');
+        }
+        const res = await fetch(url.toString());
         if (!res.ok) throw new Error('Failed to fetch action recordings');
         return res.json();
     }

@@ -15,6 +15,7 @@ const Dashboard = () => {
 
     const [actions, setActions] = useState<Action[]>([]);
     const [selectedAction, setSelectedAction] = useState<string>('');
+    const [recordingDescription, setRecordingDescription] = useState<string>('');
     const [countdown, setCountdown] = useState<number | null>(null);
     const [recordingElapsed, setRecordingElapsed] = useState(0);
     const [isStopping, setIsStopping] = useState(false);
@@ -65,7 +66,7 @@ const Dashboard = () => {
 
         // Send startRecording immediately (device also counts down)
         try {
-            await startRecording(selectedAction);
+            await startRecording(selectedAction, recordingDescription);
         } catch (err: any) {
             setRecordingError(err?.message || '無法啟動錄影，請確認裝置連線狀態');
             return;
@@ -122,25 +123,42 @@ const Dashboard = () => {
             )}
 
             <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                <div>
-                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>選擇錄製動作</label>
-                    <select
-                        value={selectedAction}
-                        onChange={e => setSelectedAction(e.target.value)}
-                        disabled={isRecording || countdown !== null}
-                        style={{
-                            width: '100%', padding: '12px', borderRadius: 'var(--radius-sm)',
-                            border: '1px solid var(--color-border)', fontSize: '1rem',
-                            backgroundColor: '#fff'
-                        }}
-                    >
-                        <option value="" disabled>請選擇動作...</option>
-                        {actions.map(a => (
-                            <option key={a.actionName} value={a.actionName}>
-                                {a.displayName} (已錄製: {a.recordingCount})
-                            </option>
-                        ))}
-                    </select>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
+                    <div>
+                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>選擇錄製動作</label>
+                        <select
+                            value={selectedAction}
+                            onChange={e => setSelectedAction(e.target.value)}
+                            disabled={isRecording || countdown !== null}
+                            style={{
+                                width: '100%', padding: '12px', borderRadius: 'var(--radius-sm)',
+                                border: '1px solid var(--color-border)', fontSize: '1rem',
+                                backgroundColor: '#fff'
+                            }}
+                        >
+                            <option value="" disabled>請選擇動作...</option>
+                            {actions.map(a => (
+                                <option key={a.actionName} value={a.actionName}>
+                                    {a.displayName} (已錄製: {a.recordingCount})
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>動作描述（可選）</label>
+                        <input
+                            value={recordingDescription}
+                            onChange={e => setRecordingDescription(e.target.value)}
+                            disabled={isRecording || countdown !== null}
+                            placeholder="例如：第一輪測試，右手優先"
+                            style={{
+                                width: '100%', padding: '12px', borderRadius: 'var(--radius-sm)',
+                                border: '1px solid var(--color-border)', fontSize: '1rem',
+                                backgroundColor: '#fff'
+                            }}
+                        />
+                    </div>
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'center', marginTop: '16px' }}>

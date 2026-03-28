@@ -64,9 +64,12 @@ export function useRecordingState() {
         };
     }, [activeRecordingId]);
 
-    const startRecording = useCallback(async (actionName: string) => {
+    const startRecording = useCallback(async (actionName: string, description?: string) => {
         try {
-            const { recordingId } = await api.startRecording(actionName);
+            const { recordingId } = await api.startRecording({
+                actionName,
+                description: description?.trim() ? description.trim() : null,
+            });
             setActiveRecordingId(recordingId);
             return recordingId;
         } catch (error) {

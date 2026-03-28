@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { api, type Recording } from '../services/api';
-import { Play, Pause, Save, Trash2, RotateCcw } from 'lucide-react';
+import { Play, Pause, Save, Trash2, RotateCcw, HardDrive } from 'lucide-react';
 
 // A single row from the data
 interface DataRow {
@@ -436,6 +436,12 @@ export default function RecordingVisualizer({ recordingId }: { recordingId: stri
             alert('已更新固定長度框框片段');
         } catch (e) {
             alert('更新失敗');
+        } finally {
+            try {
+                await api.editingCompleted(recordingId);
+            } catch (notifyError) {
+                console.error('Failed to notify editing completed:', notifyError);
+            }
         }
     };
 
@@ -446,6 +452,21 @@ export default function RecordingVisualizer({ recordingId }: { recordingId: stri
             alert('已更新為不保留狀態');
         } catch (e) {
             alert('更新失敗');
+        } finally {
+            try {
+                await api.editingCompleted(recordingId);
+            } catch (notifyError) {
+                console.error('Failed to notify editing completed:', notifyError);
+            }
+        }
+    };
+
+    const handleStash = async () => {
+        try {
+            await api.editingCompleted(recordingId);
+            alert('已暫存，目前未套用剪輯也未拋棄');
+        } catch (e) {
+            alert('暫存通知失敗');
         }
     };
 
@@ -624,10 +645,13 @@ export default function RecordingVisualizer({ recordingId }: { recordingId: stri
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '16px' }}>
                 <button className="btn-secondary" style={{ color: 'var(--color-danger)', borderColor: 'var(--color-danger)' }} onClick={handleSoftDelete}>
-                    <Trash2 size={16} /> 標記為不保留
+                    <Trash2 size={16} /> 拋棄
+                </button>
+                <button className="btn-secondary" style={{ color: '#2563eb', borderColor: '#2563eb' }} onClick={handleStash}>
+                    <HardDrive size={16} /> 暫存
                 </button>
                 <button className="btn-primary" onClick={handleSaveTrim}>
-                    <Save size={16} /> 儲存編輯結果
+                    <Save size={16} /> 剪輯
                 </button>
             </div>
 
