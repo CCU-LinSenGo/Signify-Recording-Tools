@@ -62,7 +62,6 @@ async function listActions() {
       displayName: a.displayName || a.actionName,
       description: a.description || "",
       createdAt: a.createdAt,
-      recordingCount: a.recordingCount || 0,
     })),
   });
 }
@@ -89,7 +88,6 @@ async function createAction(event) {
     displayName: displayName || actionName,
     description: description || "",
     createdAt: new Date().toISOString(),
-    recordingCount: 0,
   };
 
   await db.putItem(ACTIONS_TABLE, item);
