@@ -2,8 +2,15 @@ import { useState, useEffect } from 'react';
 import { api, type Action } from '../services/api';
 import { Link } from 'react-router-dom';
 
+type ActionStats = {
+    stashCount: number;
+    trimmedCount: number;
+    totalKeptCount: number;
+};
+
 const ActionsHub = () => {
     const [actions, setActions] = useState<Action[]>([]);
+    const [statsByAction, setStatsByAction] = useState<Record<string, ActionStats>>({});
     const [newActionName, setNewActionName] = useState('');
     const [newActionDisplayName, setNewActionDisplayName] = useState('');
 
@@ -11,6 +18,32 @@ const ActionsHub = () => {
         try {
             const res = await api.getActions();
             setActions(res.actions);
+
+            const statsEntries = await Promise.all(
+                res.actions.map(async (action) => {
+                    try {
+                        const recordingsRes = await api.getActionRecordings(action.actionName, true);
+                        const activeRecordings = recordingsRes.recordings.filter((r) => r.isActive !== false);
+                        const stashCount = activeRecordings.filter((r) => r.status === 'completed').length;
+                        const trimmedCount = activeRecordings.filter((r) => r.status === 'trimmed').length;
+
+                        return [action.actionName, {
+                            stashCount,
+                            trimmedCount,
+                            totalKeptCount: stashCount + trimmedCount,
+                        }] as const;
+                    } catch (err) {
+                        console.error(`Failed to fetch recordings for action ${action.actionName}:`, err);
+                        return [action.actionName, {
+                            stashCount: 0,
+                            trimmedCount: 0,
+                            totalKeptCount: 0,
+                        }] as const;
+                    }
+                }),
+            );
+
+            setStatsByAction(Object.fromEntries(statsEntries));
         } catch (e) {
             console.error(e);
         }
@@ -70,8 +103,19 @@ const ActionsHub = () => {
                         <div className="card" style={{ cursor: 'pointer', transition: 'transform 0.2s', ':hover': { transform: 'translateY(-2px)' } } as any}>
                             <h3 style={{ fontSize: '1.25rem', marginBottom: '8px' }}>{action.displayName}</h3>
                             <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>ID: {action.actionName}</p>
+                            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginTop: '6px' }}>
+                                描述: {action.description?.trim() || '無描述'}
+                            </p>
                             <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span className="badge badge-active">已錄製: {action.recordingCount}</span>
+                                <span className="badge" style={{ backgroundColor: '#dbeafe', color: '#1d4ed8' }}>
+                                    暫存: {statsByAction[action.actionName]?.stashCount ?? 0}
+                                </span>
+                                <span className="badge badge-success">
+                                    剪輯: {statsByAction[action.actionName]?.trimmedCount ?? 0}
+                                </span>
+                                <span className="badge badge-active">
+                                    合計: {statsByAction[action.actionName]?.totalKeptCount ?? 0}
+                                </span>
                             </div>
                         </div>
                     </Link>

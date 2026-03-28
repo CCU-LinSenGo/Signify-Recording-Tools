@@ -137,7 +137,7 @@ const Dashboard = () => {
                             <option value="" disabled>請選擇動作...</option>
                             {actions.map(a => (
                                 <option key={a.actionName} value={a.actionName}>
-                                    {a.displayName} (已錄製: {a.recordingCount})
+                                    {a.displayName}
                                 </option>
                             ))}
                         </select>

@@ -17,7 +17,7 @@ export interface Action {
     actionName: string;
     displayName: string;
     description: string;
-    recordingCount: number;
+    recordingCount?: number;
 }
 
 export interface Recording {
