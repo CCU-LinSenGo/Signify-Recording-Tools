@@ -223,6 +223,76 @@ paths:
               method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
               method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization'"
 
+  /editing/completed:
+    post:
+      summary: 剪輯完成通知
+      description: 透過 WebSocket 通知 Client A 剪輯已完成
+      operationId: editingCompleted
+      tags:
+        - DeviceControl
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EditingCompletedRequest"
+      responses:
+        "200":
+          description: 剪輯完成信號已送出
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EditingCompletedResponse"
+        "400":
+          description: 無裝置連線
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: 伺服器錯誤
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      x-amazon-apigateway-integration:
+        type: aws_proxy
+        httpMethod: POST
+        uri: arn:aws:apigateway:ap-northeast-3:lambda:path/2015-03-31/functions/arn:aws:lambda:ap-northeast-3:788670787672:function:signfy-recordings-device-control/invocations
+        passthroughBehavior: when_no_match
+    options:
+      summary: CORS preflight
+      tags:
+        - CORS
+      responses:
+        "200":
+          description: CORS preflight response
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+      x-amazon-apigateway-integration:
+        type: mock
+        requestTemplates:
+          application/json: '{"statusCode": 200}'
+        responses:
+          default:
+            statusCode: "200"
+            responseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+
   # ===========================================================
   # Action Service
   # ===========================================================
@@ -787,6 +857,15 @@ components:
           type: string
           description: 動作名稱
           example: "吃飯"
+        description:
+          type: string
+          nullable: true
+          description: 錄影描述（可選）
+          example: "第一輪測試錄影"
+        enableAnimationRecording:
+          type: boolean
+          description: 是否需要另外上傳 play.anim（可選）
+          default: false
 
     StartRecordingResponse:
       type: object
@@ -799,6 +878,14 @@ components:
           format: uuid
         actionName:
           type: string
+        description:
+          type: string
+          nullable: true
+        enableAnimationRecording:
+          type: boolean
+        animationS3Key:
+          type: string
+          nullable: true
         notifiedDevices:
           type: integer
 
@@ -816,6 +903,26 @@ components:
         message:
           type: string
           example: "Stop recording signal sent"
+        recordingId:
+          type: string
+          nullable: true
+        notifiedDevices:
+          type: integer
+
+    EditingCompletedRequest:
+      type: object
+      properties:
+        recordingId:
+          type: string
+          format: uuid
+          description: 可選，指定完成剪輯的錄影 ID
+
+    EditingCompletedResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Editing completed signal sent"
         recordingId:
           type: string
           nullable: true
@@ -930,11 +1037,19 @@ components:
           format: uuid
         actionName:
           type: string
+        description:
+          type: string
+          nullable: true
         createdAt:
           type: string
           format: date-time
         s3RawKey:
           type: string
+        s3AnimKey:
+          type: string
+          nullable: true
+        enableAnimationRecording:
+          type: boolean
         totalFrames:
           type: integer
         frameRate:

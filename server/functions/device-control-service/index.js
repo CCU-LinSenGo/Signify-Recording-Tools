@@ -4,6 +4,7 @@
 //   GET  /connection/status   → 查詢 Client A 連線狀態
 //   POST /recording/start     → 透過 WebSocket 通知 Client A 開始錄影
 //   POST /recording/stop      → 透過 WebSocket 通知 Client A 停止錄影
+//   POST /editing/completed   → 透過 WebSocket 通知 Client A 剪輯完成
 // ============================================================
 
 const {
@@ -43,6 +44,11 @@ exports.handler = async (event) => {
       return await stopRecording(event);
     }
 
+    // ---------- POST /editing/completed ----------
+    if (method === "POST" && path.includes("/editing/completed")) {
+      return await editingCompleted(event);
+    }
+
     return error(`Unknown route: ${method} ${path}`, 404);
   } catch (err) {
     console.error("[DeviceControlService] Error:", err);
@@ -78,7 +84,7 @@ async function getConnectionStatus() {
 // ============================
 async function startRecording(event) {
   const body = JSON.parse(event.body || "{}");
-  const { actionName } = body;
+  const { actionName, description, enableAnimationRecording } = body;
 
   if (!actionName) {
     return error("Missing actionName", 400);
@@ -100,13 +106,20 @@ async function startRecording(event) {
   const recordingId = generateUUID();
   const now = new Date().toISOString();
   const s3RawKey = `${actionName}/${recordingId}/raw.csv`;
+  const shouldUploadAnimation = Boolean(enableAnimationRecording);
+  const s3AnimKey = shouldUploadAnimation
+    ? `${actionName}/${recordingId}/play.anim`
+    : null;
 
   // 先建立錄影記錄（status = recording）
   await db.putItem(RECORDINGS_TABLE, {
     recordingId,
     actionName,
+    description: typeof description === "string" ? description : null,
     createdAt: now,
     s3RawKey,
+    s3AnimKey,
+    enableAnimationRecording: shouldUploadAnimation,
     totalFrames: 0,
     frameRate: FRAME_RATE,
     durationSec: 0,
@@ -119,6 +132,9 @@ async function startRecording(event) {
 
   // 產生 S3 presigned PUT URL 供 Client A 上傳
   const uploadUrl = await s3.getPresignedPutUrl(s3RawKey);
+  const animationUploadUrl = shouldUploadAnimation
+    ? await s3.getPresignedPutUrl(s3AnimKey)
+    : null;
 
   // 取得 WebSocket endpoint
   const endpoint = WEBSOCKET_ENDPOINT;
@@ -128,8 +144,12 @@ async function startRecording(event) {
     action: WS_ACTIONS.START_RECORDING,
     recordingId,
     actionName,
+    description: typeof description === "string" ? description : null,
     uploadUrl,
     s3Key: s3RawKey,
+    enableAnimationRecording: shouldUploadAnimation,
+    animationUploadUrl,
+    animationS3Key: s3AnimKey,
   };
 
   const notifyPromises = connections.map((c) =>
@@ -145,6 +165,9 @@ async function startRecording(event) {
     message: "Recording started",
     recordingId,
     actionName,
+    description: typeof description === "string" ? description : null,
+    enableAnimationRecording: shouldUploadAnimation,
+    animationS3Key: s3AnimKey,
     notifiedDevices: connections.length,
   });
 }
@@ -186,6 +209,48 @@ async function stopRecording(event) {
 
   return success({
     message: "Stop recording signal sent",
+    recordingId: recordingId || null,
+    notifiedDevices: connections.length,
+  });
+}
+
+// ============================
+// POST /editing/completed
+// ============================
+async function editingCompleted(event) {
+  const body = JSON.parse(event.body || "{}");
+  const { recordingId } = body;
+
+  // 取得目前連線中的 Client A
+  const connections = await db.scanTable(
+    CONNECTIONS_TABLE,
+    "#s = :s",
+    { ":s": CONNECTION_STATUS.CONNECTED },
+    { "#s": "status" },
+  );
+
+  if (connections.length === 0) {
+    return error("No device connected", 400);
+  }
+
+  const endpoint = WEBSOCKET_ENDPOINT;
+
+  const notifyPayload = {
+    action: WS_ACTIONS.EDITING_COMPLETED,
+    recordingId: recordingId || null,
+  };
+
+  const notifyPromises = connections.map((c) =>
+    ws
+      .postToConnection(c.connectionId, notifyPayload, endpoint)
+      .catch((err) => {
+        console.warn(`Failed to notify ${c.connectionId}:`, err.message);
+      }),
+  );
+  await Promise.all(notifyPromises);
+
+  return success({
+    message: "Editing completed signal sent",
     recordingId: recordingId || null,
     notifiedDevices: connections.length,
   });

@@ -49,5 +49,6 @@ module.exports = {
     START_RECORDING: "startRecording",
     STOP_RECORDING: "stopRecording",
     UPLOAD_COMPLETED: "uploadCompleted",
+    EDITING_COMPLETED: "editingCompleted",
   },
 };
