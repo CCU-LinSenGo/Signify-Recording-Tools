@@ -108,7 +108,7 @@ async function startRecording(event) {
   const s3RawKey = `${actionName}/${recordingId}/raw.csv`;
   const shouldUploadAnimation = Boolean(enableAnimationRecording);
   const s3AnimKey = shouldUploadAnimation
-    ? `${actionName}/${recordingId}/play.anim`
+    ? `${actionName}/${recordingId}/animation.fbx`
     : null;
 
   // 先建立錄影記錄（status = recording）
