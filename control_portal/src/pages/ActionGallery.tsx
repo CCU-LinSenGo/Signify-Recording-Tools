@@ -82,12 +82,15 @@ const ActionGallery = () => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {recordings.map(rec => {
                     const badge = getStatusBadge(rec);
+                    const hasAnimation = Boolean(rec.enableAnimationRecording);
                     return (
                     <div key={rec.recordingId} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', gap: '16px' }}>
                         <div style={{ minWidth: 0 }}>
-                            <p style={{ fontWeight: 600, marginBottom: '4px' }}>ID: {rec.recordingId.slice(0, 8)}...</p>
-                            <p style={{ marginBottom: '8px', color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
-                                動作描述: {(rec.description || actionMeta?.description || '').trim() || '無描述'}
+                            <p style={{ marginBottom: '8px', color: 'var(--color-text-main)', fontSize: '1rem', fontWeight: 600 }}>
+                                描述: {(rec.description || actionMeta?.description || '').trim() || '無描述'}
+                            </p>
+                            <p style={{ fontWeight: 500, marginBottom: '8px', color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>
+                                ID: {rec.recordingId.slice(0, 8)}...
                             </p>
                             <div style={{ display: 'flex', gap: '12px', fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
                                 <span>建立時間: {new Date(rec.createdAt).toLocaleString()}</span>
@@ -105,6 +108,20 @@ const ActionGallery = () => {
                                     {badge.icon}
                                     {badge.label}
                                 </span>
+                                {hasAnimation && (
+                                    <span style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        color: '#7c3aed',
+                                        backgroundColor: '#f3e8ff',
+                                        borderRadius: '999px',
+                                        padding: '3px 10px',
+                                        fontWeight: 600,
+                                    }}>
+                                        動畫
+                                    </span>
+                                )}
                             </div>
                         </div>
                         <button className="btn-primary" onClick={() => setEditingRecordingId(rec.recordingId)}>

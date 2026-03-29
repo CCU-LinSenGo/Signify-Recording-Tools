@@ -148,7 +148,11 @@ async function listRecordingsByAction(actionName, event) {
     recordings: recordings.map((r) => ({
       recordingId: r.recordingId,
       actionName: r.actionName,
+      description: r.description || null,
       createdAt: r.createdAt,
+      s3RawKey: r.s3RawKey,
+      s3AnimKey: r.s3AnimKey || null,
+      enableAnimationRecording: Boolean(r.enableAnimationRecording),
       totalFrames: r.totalFrames,
       frameRate: r.frameRate,
       durationSec: r.durationSec,

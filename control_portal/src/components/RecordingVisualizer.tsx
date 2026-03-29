@@ -493,9 +493,32 @@ export default function RecordingVisualizer({ recordingId }: { recordingId: stri
     const totalFramesAvailable = frames.length;
     // Make sure slider doesn't overflow
     const maxTrimStart = Math.max(0, totalFramesAvailable - selectedLength);
+    const hasAnimation = Boolean(recording.enableAnimationRecording || recording.s3AnimKey);
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+            <div className="card" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.92rem', color: 'var(--color-text-muted)' }}>描述:</span>
+                    <span style={{ fontWeight: 600 }}>{recording.description?.trim() || '無描述'}</span>
+                </div>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.92rem', color: 'var(--color-text-muted)' }}>動畫:</span>
+                    <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        borderRadius: '999px',
+                        padding: '2px 10px',
+                        fontWeight: 600,
+                        fontSize: '0.85rem',
+                        color: hasAnimation ? '#7c3aed' : 'var(--color-text-muted)',
+                        backgroundColor: hasAnimation ? '#f3e8ff' : '#f3f4f6',
+                    }}>
+                        {hasAnimation ? '有動畫' : '無動畫'}
+                    </span>
+                </div>
+            </div>
 
             {/* Visualizer Canvas Area — Front + Side */}
             <div className="card" style={{ padding: '16px', display: 'flex', gap: '16px', justifyContent: 'center', backgroundColor: '#fafafa', flexWrap: 'wrap' }}>

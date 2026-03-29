@@ -25,6 +25,9 @@ export interface Recording {
     actionName: string;
     description?: string | null;
     createdAt: string;
+    s3RawKey?: string;
+    s3AnimKey?: string | null;
+    enableAnimationRecording?: boolean;
     totalFrames: number;
     frameRate: number;
     durationSec: number;
