@@ -21,6 +21,13 @@ interface FrameData {
     joints: DataRow[];
 }
 
+interface ViewBounds {
+    minX: number;
+    maxX: number;
+    minY: number;
+    maxY: number;
+}
+
 // Simple CSV parser for structured recording data
 function parseCsv(csvText: string): DataRow[] {
     const lines = csvText.trim().split('\n');
@@ -44,10 +51,22 @@ function parseCsv(csvText: string): DataRow[] {
     });
 }
 
-export default function RecordingVisualizer({ recordingId }: { recordingId: string }) {
+type RecordingVisualizerProps = {
+    recordingId: string;
+    autoLoopPlayback?: boolean;
+    showActionButtonsAboveData?: boolean;
+};
+
+export default function RecordingVisualizer({
+    recordingId,
+    autoLoopPlayback = false,
+    showActionButtonsAboveData = false,
+}: RecordingVisualizerProps) {
     const [recording, setRecording] = useState<Recording | null>(null);
     const [frames, setFrames] = useState<FrameData[]>([]);
     const [loading, setLoading] = useState(true);
+    const [toastMessage, setToastMessage] = useState<string | null>(null);
+    const [toastProgress, setToastProgress] = useState<number>(100);
 
     // Playback state
     const [isPlaying, setIsPlaying] = useState(false);
@@ -57,9 +76,110 @@ export default function RecordingVisualizer({ recordingId }: { recordingId: stri
     // Trimming State
     const [selectedLength, setSelectedLength] = useState<number>(60); // 30, 60, 90
     const [trimStartIndex, setTrimStartIndex] = useState<number>(0);
+    const [cameraZoom, setCameraZoom] = useState<number>(2);
 
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const sideCanvasRef = useRef<HTMLCanvasElement>(null);
+    const toastTimerRef = useRef<number | null>(null);
+    const toastProgressIntervalRef = useRef<number | null>(null);
+
+    const clearToastTimers = () => {
+        if (toastTimerRef.current !== null) {
+            window.clearTimeout(toastTimerRef.current);
+            toastTimerRef.current = null;
+        }
+        if (toastProgressIntervalRef.current !== null) {
+            window.clearInterval(toastProgressIntervalRef.current);
+            toastProgressIntervalRef.current = null;
+        }
+    };
+
+    const showToast = (message: string, duration = 2500) => {
+        clearToastTimers();
+        setToastMessage(message);
+        setToastProgress(100);
+
+        const startedAt = Date.now();
+        toastProgressIntervalRef.current = window.setInterval(() => {
+            const elapsed = Date.now() - startedAt;
+            const remaining = Math.max(0, duration - elapsed);
+            setToastProgress((remaining / duration) * 100);
+        }, 40);
+
+        toastTimerRef.current = window.setTimeout(() => {
+            setToastMessage(null);
+            setToastProgress(0);
+            clearToastTimers();
+        }, duration);
+    };
+
+    const frontViewBounds = useMemo<ViewBounds | null>(() => {
+        if (frames.length === 0) return null;
+
+        let minX = Infinity;
+        let maxX = -Infinity;
+        let minY = Infinity;
+        let maxY = -Infinity;
+
+        frames.forEach((frame) => {
+            frame.joints.forEach((j) => {
+                if (!j.isValid || !j.isTracked) return;
+                minX = Math.min(minX, j.pos_x);
+                maxX = Math.max(maxX, j.pos_x);
+                minY = Math.min(minY, j.pos_y);
+                maxY = Math.max(maxY, j.pos_y);
+            });
+        });
+
+        if (!Number.isFinite(minX) || !Number.isFinite(maxX) || !Number.isFinite(minY) || !Number.isFinite(maxY)) {
+            return null;
+        }
+
+        const marginRatio = 0.12;
+        const width = Math.max(maxX - minX, 0.001);
+        const height = Math.max(maxY - minY, 0.001);
+
+        return {
+            minX: minX - width * marginRatio,
+            maxX: maxX + width * marginRatio,
+            minY: minY - height * marginRatio,
+            maxY: maxY + height * marginRatio,
+        };
+    }, [frames]);
+
+    const sideViewBounds = useMemo<ViewBounds | null>(() => {
+        if (frames.length === 0) return null;
+
+        let minX = Infinity;
+        let maxX = -Infinity;
+        let minY = Infinity;
+        let maxY = -Infinity;
+
+        frames.forEach((frame) => {
+            frame.joints.forEach((j) => {
+                if (!j.isValid || !j.isTracked) return;
+                minX = Math.min(minX, j.pos_z);
+                maxX = Math.max(maxX, j.pos_z);
+                minY = Math.min(minY, j.pos_y);
+                maxY = Math.max(maxY, j.pos_y);
+            });
+        });
+
+        if (!Number.isFinite(minX) || !Number.isFinite(maxX) || !Number.isFinite(minY) || !Number.isFinite(maxY)) {
+            return null;
+        }
+
+        const marginRatio = 0.12;
+        const width = Math.max(maxX - minX, 0.001);
+        const height = Math.max(maxY - minY, 0.001);
+
+        return {
+            minX: minX - width * marginRatio,
+            maxX: maxX + width * marginRatio,
+            minY: minY - height * marginRatio,
+            maxY: maxY + height * marginRatio,
+        };
+    }, [frames]);
 
     useEffect(() => {
         let active = true;
@@ -149,13 +269,31 @@ export default function RecordingVisualizer({ recordingId }: { recordingId: stri
         setCurrentFrameIndex(trimStartIndex);
     }, [trimStartIndex, selectedLength]);
 
+    useEffect(() => {
+        if (!autoLoopPlayback || frames.length === 0) return;
+        setCurrentFrameIndex(0);
+        setIsPlayAll(true);
+        setIsPlaying(true);
+    }, [autoLoopPlayback, recordingId, frames.length]);
+
+    useEffect(() => {
+        return () => {
+            clearToastTimers();
+        };
+    }, []);
+
+    const scrollToTop = () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
     // ---- Shared drawing function for both views ----
     const drawHandView = (
         canvas: HTMLCanvasElement,
         frameObj: FrameData,
         getXCoord: (j: DataRow) => number,
         getYCoord: (j: DataRow) => number,
-        viewLabel: string
+        viewLabel: string,
+        bounds: ViewBounds | null
     ) => {
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
@@ -185,26 +323,37 @@ export default function RecordingVisualizer({ recordingId }: { recordingId: stri
             return;
         }
 
-        // ---- Auto-fit: compute bounding box of all valid joints ----
-        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-        validJoints.forEach(j => {
-            const xVal = getXCoord(j);
-            const yVal = getYCoord(j);
-            minX = Math.min(minX, xVal);
-            maxX = Math.max(maxX, xVal);
-            minY = Math.min(minY, yVal);
-            maxY = Math.max(maxY, yVal);
-        });
+        // Keep camera fixed by using precomputed global bounds for this view.
+        let minX = Infinity;
+        let maxX = -Infinity;
+        let minY = Infinity;
+        let maxY = -Infinity;
 
-        const dataW = maxX - minX || 0.001;
-        const dataH = maxY - minY || 0.001;
+        if (bounds) {
+            minX = bounds.minX;
+            maxX = bounds.maxX;
+            minY = bounds.minY;
+            maxY = bounds.maxY;
+        } else {
+            validJoints.forEach(j => {
+                const xVal = getXCoord(j);
+                const yVal = getYCoord(j);
+                minX = Math.min(minX, xVal);
+                maxX = Math.max(maxX, xVal);
+                minY = Math.min(minY, yVal);
+                maxY = Math.max(maxY, yVal);
+            });
+        }
+
+        const dataW = Math.max(maxX - minX, 0.001);
+        const dataH = Math.max(maxY - minY, 0.001);
         const dataCx = (minX + maxX) / 2;
         const dataCy = (minY + maxY) / 2;
 
         const padding = 80;
         const availW = canvas.width - padding * 2;
         const availH = canvas.height - padding * 2;
-        const scale = Math.min(availW / dataW, availH / dataH);
+        const scale = Math.min(availW / dataW, availH / dataH) * cameraZoom;
 
         const toCanvas = (x: number, y: number): [number, number] => {
             const px = canvas.width / 2 + (x - dataCx) * scale;
@@ -418,13 +567,13 @@ export default function RecordingVisualizer({ recordingId }: { recordingId: stri
 
         // Front view — X / Y
         if (canvasRef.current) {
-            drawHandView(canvasRef.current, frameObj, j => j.pos_x, j => j.pos_y, '正面 (X / Y)');
+            drawHandView(canvasRef.current, frameObj, j => j.pos_x, j => j.pos_y, '正面 (X / Y)', frontViewBounds);
         }
         // Side view — Z / Y
         if (sideCanvasRef.current) {
-            drawHandView(sideCanvasRef.current, frameObj, j => j.pos_z, j => j.pos_y, '側面 (Z / Y)');
+            drawHandView(sideCanvasRef.current, frameObj, j => j.pos_z, j => j.pos_y, '側面 (Z / Y)', sideViewBounds);
         }
-    }, [currentFrameIndex, frames]);
+    }, [currentFrameIndex, frames, frontViewBounds, sideViewBounds, cameraZoom]);
 
     const handleSaveTrim = async () => {
         try {
@@ -433,7 +582,7 @@ export default function RecordingVisualizer({ recordingId }: { recordingId: stri
                 trimEndFrame: trimStartIndex + selectedLength,
                 selectedFrameLength: selectedLength
             });
-            alert('已更新固定長度框框片段');
+            showToast('已更新固定長度框框片段');
         } catch (e) {
             alert('更新失敗');
         } finally {
@@ -442,14 +591,14 @@ export default function RecordingVisualizer({ recordingId }: { recordingId: stri
             } catch (notifyError) {
                 console.error('Failed to notify editing completed:', notifyError);
             }
+            scrollToTop();
         }
     };
 
     const handleSoftDelete = async () => {
-        if (!window.confirm("確定要把這組數據標記為軟刪除嗎？")) return;
         try {
             await api.deleteRecording(recordingId);
-            alert('已更新為不保留狀態');
+            showToast('已更新為不保留狀態');
         } catch (e) {
             alert('更新失敗');
         } finally {
@@ -458,15 +607,18 @@ export default function RecordingVisualizer({ recordingId }: { recordingId: stri
             } catch (notifyError) {
                 console.error('Failed to notify editing completed:', notifyError);
             }
+            scrollToTop();
         }
     };
 
     const handleStash = async () => {
         try {
             await api.editingCompleted(recordingId);
-            alert('已暫存，目前未套用剪輯也未拋棄');
+            showToast('已暫存，目前未套用剪輯也未拋棄');
         } catch (e) {
             alert('暫存通知失敗');
+        } finally {
+            scrollToTop();
         }
     };
 
@@ -494,11 +646,67 @@ export default function RecordingVisualizer({ recordingId }: { recordingId: stri
     // Make sure slider doesn't overflow
     const maxTrimStart = Math.max(0, totalFramesAvailable - selectedLength);
     const hasAnimation = Boolean(recording.enableAnimationRecording || recording.s3AnimKey);
+    const actionButtons = (
+        <div style={{ display: 'flex', width: '100%', gap: '12px', flexWrap: 'wrap' }}>
+            <button className="btn-secondary" style={{ color: 'var(--color-danger)', borderColor: 'var(--color-danger)', flex: '1 1 0', minWidth: '120px', justifyContent: 'center' }} onClick={handleSoftDelete}>
+                <Trash2 size={16} /> 拋棄
+            </button>
+            <button className="btn-secondary" style={{ color: '#2563eb', borderColor: '#2563eb', flex: '1 1 0', minWidth: '120px', justifyContent: 'center' }} onClick={handleStash}>
+                <HardDrive size={16} /> 暫存
+            </button>
+            <button className="btn-primary" style={{ flex: '1 1 0', minWidth: '120px', justifyContent: 'center' }} onClick={handleSaveTrim}>
+                <Save size={16} /> 剪輯
+            </button>
+        </div>
+    );
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-
-            <div className="card" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {toastMessage && (
+                <div
+                    role="status"
+                    aria-live="polite"
+                    style={{
+                        position: 'fixed',
+                        top: '20px',
+                        right: '20px',
+                        zIndex: 1000,
+                        backgroundColor: 'rgba(17, 24, 39, 0.95)',
+                        color: '#fff',
+                        padding: '14px 18px',
+                        borderRadius: '10px',
+                        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.2)',
+                        fontSize: '1.05rem',
+                        fontWeight: 600,
+                        lineHeight: 1.35,
+                        maxWidth: '360px',
+                        overflow: 'hidden',
+                    }}
+                >
+                    {toastMessage}
+                    <div
+                        aria-hidden="true"
+                        style={{
+                            position: 'absolute',
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            height: '4px',
+                            backgroundColor: 'rgba(255, 255, 255, 0.24)',
+                        }}
+                    >
+                        <div
+                            style={{
+                                width: `${toastProgress}%`,
+                                height: '100%',
+                                backgroundColor: '#34d399',
+                                transition: 'width 40ms linear',
+                            }}
+                        />
+                    </div>
+                </div>
+            )}
+            {!showActionButtonsAboveData && <div className="card" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
                     <span style={{ fontSize: '0.92rem', color: 'var(--color-text-muted)' }}>描述:</span>
                     <span style={{ fontWeight: 600 }}>{recording.description?.trim() || '無描述'}</span>
@@ -518,7 +726,10 @@ export default function RecordingVisualizer({ recordingId }: { recordingId: stri
                         {hasAnimation ? '有動畫' : '無動畫'}
                     </span>
                 </div>
-            </div>
+            </div>}
+            
+
+            {showActionButtonsAboveData && actionButtons}
 
             {/* Visualizer Canvas Area — Front + Side */}
             <div className="card" style={{ padding: '16px', display: 'flex', gap: '16px', justifyContent: 'center', backgroundColor: '#fafafa', flexWrap: 'wrap' }}>
@@ -567,6 +778,22 @@ export default function RecordingVisualizer({ recordingId }: { recordingId: stri
                     }}>
                         <Play size={20} /> 從頭到尾
                     </button>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)', minWidth: '72px' }}>鏡頭倍率</span>
+                    <input
+                        type="range"
+                        min={0.25}
+                        max={3}
+                        step={0.05}
+                        value={cameraZoom}
+                        onChange={(e) => setCameraZoom(Number(e.target.value))}
+                        style={{ flex: 1, minWidth: '220px' }}
+                    />
+                    <span style={{ fontSize: '0.9rem', fontWeight: 600, minWidth: '52px', textAlign: 'right' }}>
+                        {cameraZoom.toFixed(2)}x
+                    </span>
                 </div>
 
                 {/* Timeline Trimming Controls */}
@@ -666,17 +893,7 @@ export default function RecordingVisualizer({ recordingId }: { recordingId: stri
                 </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '16px' }}>
-                <button className="btn-secondary" style={{ color: 'var(--color-danger)', borderColor: 'var(--color-danger)' }} onClick={handleSoftDelete}>
-                    <Trash2 size={16} /> 拋棄
-                </button>
-                <button className="btn-secondary" style={{ color: '#2563eb', borderColor: '#2563eb' }} onClick={handleStash}>
-                    <HardDrive size={16} /> 暫存
-                </button>
-                <button className="btn-primary" onClick={handleSaveTrim}>
-                    <Save size={16} /> 剪輯
-                </button>
-            </div>
+            {!showActionButtonsAboveData && actionButtons}
 
         </div>
     );

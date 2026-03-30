@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRecordingState } from '../hooks/useRecordingState';
 import { api, type Action } from '../services/api';
 import { Play, Square, Loader, AlertCircle, ChevronDown } from 'lucide-react';
@@ -27,6 +27,17 @@ const Dashboard = () => {
     const isRecording = activeRecording?.status === 'recording';
     const showVisualizer = activeRecording && (activeRecording.status === 'completed' || activeRecording.status === 'trimmed');
 
+    const animationActionName = useMemo(() => {
+        const exactDisplay = actions.find((a) => a.displayName.trim() === '動畫');
+        if (exactDisplay) return exactDisplay.actionName;
+
+        const exactName = actions.find((a) => a.actionName.trim() === '動畫');
+        if (exactName) return exactName.actionName;
+
+        const normalized = actions.find((a) => a.actionName.trim().toLowerCase() === 'animation');
+        return normalized?.actionName ?? null;
+    }, [actions]);
+
     useEffect(() => {
         api.getActions().then(res => {
             setActions(res.actions);
@@ -35,6 +46,13 @@ const Dashboard = () => {
             }
         }).catch(console.error);
     }, []);
+
+    useEffect(() => {
+        if (!enableAnimationRecording || !animationActionName) return;
+        if (selectedAction !== animationActionName) {
+            setSelectedAction(animationActionName);
+        }
+    }, [enableAnimationRecording, animationActionName, selectedAction]);
 
     // Elapsed timer during recording
     useEffect(() => {
@@ -102,12 +120,7 @@ const Dashboard = () => {
     // The visualizer is now rendered below the recording controls
 
     return (
-        <div className="container" style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '800px', margin: '40px auto' }}>
-            <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-                <h2 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '8px' }}>錄影控制面板</h2>
-                <p style={{ color: 'var(--color-text-muted)' }}>控制 Apple Vision Pro 錄製節點數據</p>
-            </div>
-
+        <div className="container" style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '1000px', margin: '40px auto' }}>
             {/* Error Banner */}
             {recordingError && (
                 <div className="animate-fade-in" style={{
@@ -131,7 +144,14 @@ const Dashboard = () => {
                         <select
                             className="recording-input control-select"
                             value={selectedAction}
-                            onChange={e => setSelectedAction(e.target.value)}
+                            onChange={e => {
+                                const nextAction = e.target.value;
+                                if (enableAnimationRecording && animationActionName) {
+                                    setSelectedAction(animationActionName);
+                                    return;
+                                }
+                                setSelectedAction(nextAction);
+                            }}
                             disabled={isRecording || countdown !== null}
                         >
                             <option value="" disabled>請選擇動作...</option>
@@ -153,13 +173,12 @@ const Dashboard = () => {
                             value={recordingDescription}
                             onChange={e => setRecordingDescription(e.target.value)}
                             disabled={isRecording || countdown !== null}
-                            placeholder="例如：第一輪測試，右手優先"
                         />
                         </div>
                     </div>
 
                     <div className="recording-config-field recording-config-toggle-field">
-                        <label className="recording-config-label">錄製動畫檔（play.anim）</label>
+                        <label className="recording-config-label">錄製動畫檔</label>
                         <button
                             type="button"
                             className={`recording-toggle ${enableAnimationRecording ? 'is-enabled' : ''}`}
@@ -174,9 +193,6 @@ const Dashboard = () => {
                                 <span className="recording-toggle-thumb" />
                             </span>
                         </button>
-                        <p className="recording-config-hint">
-                            啟用後會要求 Client A 額外上傳同目錄的 play.anim。
-                        </p>
                     </div>
                 </div>
 
@@ -284,8 +300,11 @@ const Dashboard = () => {
             {/* Visualizer Component */}
             {showVisualizer && activeRecordingId && (
                 <div style={{ marginTop: '16px', borderTop: '1px solid var(--color-border)', paddingTop: '32px' }}>
-                    <h2 style={{ fontSize: '1.5rem', marginBottom: '24px', textAlign: 'center' }}>回放與編輯錄影數據</h2>
-                    <RecordingVisualizer recordingId={activeRecordingId!} />
+                    <RecordingVisualizer
+                        recordingId={activeRecordingId!}
+                        autoLoopPlayback={true}
+                        showActionButtonsAboveData={true}
+                    />
                 </div>
             )}
 
