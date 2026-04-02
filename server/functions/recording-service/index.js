@@ -11,7 +11,6 @@ const {
   RECORDINGS_TABLE,
   ACTIONS_TABLE,
   RECORDING_STATUS,
-  ALLOWED_FRAME_LENGTHS,
 } = require("/opt/shared/constants");
 const { success, error } = require("/opt/shared/response");
 const db = require("/opt/shared/dynamodb");
@@ -143,14 +142,14 @@ async function trimRecording(recordingId, event) {
   }
 
   const frameLength = trimEndFrame - trimStartFrame;
+  const parsedSelectedFrameLength =
+    selectedFrameLength == null ? null : Number(selectedFrameLength);
   if (
-    selectedFrameLength &&
-    !ALLOWED_FRAME_LENGTHS.includes(selectedFrameLength)
+    parsedSelectedFrameLength != null &&
+    (!Number.isInteger(parsedSelectedFrameLength) ||
+      parsedSelectedFrameLength <= 0)
   ) {
-    return error(
-      `selectedFrameLength must be one of: ${ALLOWED_FRAME_LENGTHS.join(", ")}`,
-      400,
-    );
+    return error("selectedFrameLength must be a positive integer", 400);
   }
 
   // 取得原始錄影記錄
@@ -176,7 +175,7 @@ async function trimRecording(recordingId, event) {
       ":s": RECORDING_STATUS.TRIMMED,
       ":tsf": trimStartFrame,
       ":tef": trimEndFrame,
-      ":sfl": selectedFrameLength || frameLength,
+      ":sfl": parsedSelectedFrameLength || frameLength,
       ":ta": new Date().toISOString(),
     },
     { "#s": "status" },

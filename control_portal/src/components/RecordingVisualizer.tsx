@@ -74,9 +74,14 @@ export default function RecordingVisualizer({
     const [isPlayAll, setIsPlayAll] = useState(false);
 
     // Trimming State
-    const [selectedLength, setSelectedLength] = useState<number>(60); // 30, 60, 90
+    const [selectedLength, setSelectedLength] = useState<number>(60);
     const [trimStartIndex, setTrimStartIndex] = useState<number>(0);
     const [cameraZoom, setCameraZoom] = useState<number>(2);
+
+    const clampLength = (length: number, totalFrames: number) => {
+        const maxAllowed = Math.max(1, totalFrames);
+        return Math.min(Math.max(1, Math.floor(length)), maxAllowed);
+    };
 
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const sideCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -216,12 +221,15 @@ export default function RecordingVisualizer({
                 setFrames(sortedFrames);
 
                 // Setup initial trim windows
-                if (recRes.recording.trimStartFrame !== undefined) {
-                    setTrimStartIndex(recRes.recording.trimStartFrame);
-                }
-                if (recRes.recording.selectedFrameLength) {
-                    setSelectedLength(recRes.recording.selectedFrameLength);
-                }
+                const totalFrames = sortedFrames.length;
+                const initialLength = recRes.recording.selectedFrameLength
+                    ? clampLength(recRes.recording.selectedFrameLength, totalFrames)
+                    : clampLength(60, totalFrames);
+                const initialTrimStart = Math.max(0, Number(recRes.recording.trimStartFrame) || 0);
+                const maxTrimStartForLength = Math.max(0, totalFrames - initialLength);
+
+                setSelectedLength(initialLength);
+                setTrimStartIndex(Math.min(initialTrimStart, maxTrimStartForLength));
             } catch (e) {
                 console.error("Failed to load visualizer data", e);
             } finally {
@@ -238,6 +246,8 @@ export default function RecordingVisualizer({
         // targeting 30fps = ~33.3ms per frame
         const fpsInterval = 44.4;
         const totalFrames = frames.length;
+        const playbackLength = clampLength(selectedLength, totalFrames);
+        const playbackEnd = Math.min(totalFrames, trimStartIndex + playbackLength);
 
         const renderLoop = (time: number) => {
             if (isPlaying) {
@@ -253,7 +263,7 @@ export default function RecordingVisualizer({
                             return next >= totalFrames ? 0 : next;
                         }
                         // Play only within trim boundaries
-                        return next >= trimStartIndex + selectedLength ? trimStartIndex : next;
+                        return next >= playbackEnd ? trimStartIndex : next;
                     });
                 }
             }
@@ -643,8 +653,9 @@ export default function RecordingVisualizer({
     if (!recording || frames.length === 0) return <div className="card" style={{ padding: '48px', textAlign: 'center' }}>無數據或是無法讀取</div>;
 
     const totalFramesAvailable = frames.length;
+    const effectiveSelectedLength = clampLength(selectedLength, totalFramesAvailable);
     // Make sure slider doesn't overflow
-    const maxTrimStart = Math.max(0, totalFramesAvailable - selectedLength);
+    const maxTrimStart = Math.max(0, totalFramesAvailable - effectiveSelectedLength);
     const hasAnimation = Boolean(recording.enableAnimationRecording || recording.s3AnimKey);
     const actionButtons = (
         <div style={{ display: 'flex', width: '100%', gap: '12px', flexWrap: 'wrap' }}>
@@ -802,21 +813,22 @@ export default function RecordingVisualizer({
                         <h4 style={{ fontWeight: 600 }}>剪輯與框列 (拖曳決定哪一個片段)</h4>
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                             <span style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)' }}>框列長度:</span>
-                            <select
-                                value={selectedLength}
+                            <input
+                                type="number"
+                                min={1}
+                                max={Math.max(1, totalFramesAvailable)}
+                                step={1}
+                                value={effectiveSelectedLength}
                                 onChange={(e) => {
-                                    const len = Number(e.target.value);
+                                    const len = clampLength(Number(e.target.value), totalFramesAvailable);
                                     setSelectedLength(len);
                                     if (trimStartIndex + len > totalFramesAvailable) {
                                         setTrimStartIndex(Math.max(0, totalFramesAvailable - len));
                                     }
                                 }}
-                                style={{ padding: '6px 12px', borderRadius: '4px', border: '1px solid var(--color-border)' }}
-                            >
-                                <option value={30}>30 幀 (1秒)</option>
-                                <option value={60}>60 幀 (2秒)</option>
-                                <option value={90}>90 幀 (3秒)</option>
-                            </select>
+                                style={{ width: '120px', padding: '6px 12px', borderRadius: '4px', border: '1px solid var(--color-border)' }}
+                            />
+                            <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>幀</span>
                         </div>
                     </div>
 
@@ -836,7 +848,7 @@ export default function RecordingVisualizer({
                         <div style={{
                             position: 'absolute', top: 0, bottom: 0,
                             left: `${(trimStartIndex / totalFramesAvailable) * 100}%`,
-                            width: `${(selectedLength / totalFramesAvailable) * 100}%`,
+                            width: `${(effectiveSelectedLength / totalFramesAvailable) * 100}%`,
                             backgroundColor: 'var(--color-primary-light)',
                             border: '2px solid var(--color-primary)',
                             boxSizing: 'border-box',
@@ -885,7 +897,7 @@ export default function RecordingVisualizer({
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
                         <span>0</span>
                         <span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>
-                            目前選取起點: {trimStartIndex} ~ {trimStartIndex + selectedLength}
+                            目前選取起點: {trimStartIndex} ~ {trimStartIndex + effectiveSelectedLength}
                         </span>
                         <span>{totalFramesAvailable} 幀</span>
                     </div>

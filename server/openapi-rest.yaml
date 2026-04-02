@@ -1131,11 +1131,8 @@ components:
           example: 70
         selectedFrameLength:
           type: integer
-          description: "選定幀數（可選，必須為 30/60/90 之一）"
-          enum:
-            - 30
-            - 60
-            - 90
+          minimum: 1
+          description: "選定幀數（可選，正整數，不限制固定值）"
           example: 60
 
     TrimRecordingResponse:

@@ -28,7 +28,6 @@ module.exports = {
 
   // Recording
   FRAME_RATE: 30,
-  ALLOWED_FRAME_LENGTHS: [30, 60, 90],
   DEFAULT_FRAME_LENGTH: 60,
 
   // Connection status
